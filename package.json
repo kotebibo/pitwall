@@ -1,0 +1,9 @@
+{
+  "name": "pitwall",
+  "private": true,
+  "packageManager": "pnpm@11.15.1",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "pnpm -r test"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "size": [
+    200,
+    80
+  ],
+  "standing_spots": {
+    "3": [
+      163,
+      41
+    ],
+    "2": [
+      37,
+      31
+    ],
+    "1": [
+      100,
+      15
+    ]
+  },
+  "note": "standing_spots: centre of each step's top surface (pixel coords); put a driver's feet / the trophy base there"
+}

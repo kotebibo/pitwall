@@ -1,0 +1,72 @@
+{
+  "size": [
+    160,
+    40
+  ],
+  "pod_centers": [
+    [
+      32,
+      24
+    ],
+    [
+      56,
+      24
+    ],
+    [
+      80,
+      24
+    ],
+    [
+      104,
+      24
+    ],
+    [
+      128,
+      24
+    ]
+  ],
+  "lamp_centers_per_pod": [
+    [
+      0,
+      -7
+    ],
+    [
+      0,
+      6
+    ]
+  ],
+  "light_on": {
+    "file": "start_light_on.png",
+    "size": [
+      26,
+      38
+    ],
+    "center": [
+      13,
+      19
+    ],
+    "topleft_per_pod": [
+      [
+        19,
+        5
+      ],
+      [
+        43,
+        5
+      ],
+      [
+        67,
+        5
+      ],
+      [
+        91,
+        5
+      ],
+      [
+        115,
+        5
+      ]
+    ]
+  },
+  "note": "Pixel-corner coordinates in start_lights.png. To light pod i, draw start_light_on.png centred on pod_centers[i] (Sprite2D centered = true at that point, or top-left at light_on.topleft_per_pod[i]). Pods light left to right, one per second; all go out together for the start."
+}

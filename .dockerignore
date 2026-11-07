@@ -1,0 +1,47 @@
+# Docker build context for the Fly.io image (see Dockerfile, deploy/README.md).
+# Whitelist: everything is excluded unless re-included below. That keeps out
+# node_modules, target/ (Rust/Anchor builds, ~3.7 GB), .git, game/.godot,
+# programs/, docs/ (presentations), art/ sources, tools/ (+ __pycache__),
+# video files, server/.data and anything else that lands in the repo root.
+*
+
+# workspace manifests + lockfile (pnpm install --frozen-lockfile)
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+
+# @pitwall/sim (workspace dependency of the server, plain .ts)
+!packages/sim/package.json
+!packages/sim/src/
+
+# server (no tests, no local data)
+!server/package.json
+!server/src/
+
+# Anchor IDL only (server/src/chain.ts requires ../../target/idl/pitwall.json)
+!target/idl/pitwall.json
+
+# Godot project for the headless re-drive (re-imported in the image)
+!game/
+
+# prebuilt web export from tools/build-web.cmd (not rebuilt in the image)
+!build/web/
+
+# logos and link-preview images served at /brand/*
+!brand/
+
+# entrypoint
+!deploy/start.sh
+
+# junk inside the re-included folders
+game/.godot/
+game/android/
+**/node_modules/
+**/__pycache__/
+**/*.tmp
+**/*.translation
+**/.DS_Store
+**/Thumbs.db
+**/*.mp4
+**/*.mov
+**/*.webm

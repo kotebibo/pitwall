@@ -1,0 +1,20 @@
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+pitwall = "FRMukL3ubSZcGHxAFjK1ywSqfY3bWod2ro1ySoULwH4r"
+
+[programs.devnet]
+pitwall = "FRMukL3ubSZcGHxAFjK1ywSqfY3bWod2ro1ySoULwH4r"
+
+[provider]
+cluster = "localnet"
+wallet = '~\.config/solana/id.json'
+
+[scripts]
+test = "cargo test"
+
+[hooks]

@@ -1,0 +1,279 @@
+{
+  "version": 1,
+  "about": "Pit Wall parts catalogue. Shared by the server (rolls parts, sums the car spec) and the Godot client (garage cards, car sprites). A part's stats are integers; the car spec is the sum over the six fitted parts plus traits and synergies. Every part spends the same lap-time budget, so parts are different, not better.",
+
+  "specKeys": {
+    "downforce": { "unit": "permille", "label": "Downforce", "description": "Change to downforce, in tenths of a percent (k_down x (1000 + v) / 1000).", "physicsClamp": [-150, 150] },
+    "drag": { "unit": "permille", "label": "Drag", "description": "Change to drag, in tenths of a percent; negative is faster on straights (k_drag x (1000 + v) / 1000).", "physicsClamp": [-150, 150] },
+    "balance": { "unit": "permille", "label": "Aero balance", "description": "Points of aero balance moved to the front axle, in thousandths of the downforce share (front_share + v / 1000). Positive: sharper turn-in, lighter rear.", "physicsClamp": [-60, 60] },
+    "power": { "unit": "kW", "label": "Power", "description": "Kilowatts added to the 400 kW combustion engine.", "physicsClamp": [-40, 40] },
+    "harvest": { "unit": "permille", "label": "Energy recovery", "description": "Change to energy harvested under braking and lift-off, in tenths of a percent.", "physicsClamp": [-200, 200] },
+    "grip": { "unit": "permille", "label": "Mechanical grip", "description": "Change to tyre peak grip, in tenths of a percent.", "physicsClamp": [-80, 80] },
+    "traction": { "unit": "permille", "label": "Traction", "description": "Change to drive force and rear grip under power out of slow corners, in tenths of a percent.", "physicsClamp": [-120, 120] }
+  },
+
+  "lapWeights": {
+    "unit": "lap-time points per stat unit: 1 point = 0.001% of lap time, positive = faster",
+    "source": "Quasi-steady-state lap model of car_sim.gd constants on Mtkvari (ideal driver, steady-state energy). Recalibrate when the physics changes.",
+    "weights": { "downforce": 15, "drag": -5, "balance": 0, "power": 18, "harvest": 1, "grip": 46, "traction": 10 }
+  },
+
+  "trackTypes": {
+    "mixed": { "name": "Mixed", "about": "The calibration circuit (Mtkvari).", "multipliers": { "downforce": 1, "drag": 1, "balance": 1, "power": 1, "harvest": 1, "grip": 1, "traction": 1 } },
+    "street": { "name": "Street", "about": "Slow corners, short straights, heavy braking.", "multipliers": { "downforce": 0.7, "drag": 0.5, "balance": 1, "power": 0.6, "harvest": 1.4, "grip": 1.25, "traction": 1.6 } },
+    "speed": { "name": "Speed", "about": "Long straights, fast corners.", "multipliers": { "downforce": 0.8, "drag": 1.6, "balance": 1, "power": 1.5, "harvest": 0.8, "grip": 0.8, "traction": 0.6 } }
+  },
+
+  "budget": {
+    "points": 50,
+    "tolerance": 3,
+    "about": "Every rolled part's lap-time points (stats x weights, traits included) equal points x (1 + rarity bonus) minus the traits' budget cost, within the tolerance. 50 points = 0.05% of lap time, so six earned parts are worth about 0.3% over the starter car on the calibration circuit. Track fit, synergy and setup decide the rest."
+  },
+
+  "rarities": {
+    "starter": { "name": "Starter", "weight": 0, "budgetBonus": 0, "traits": 0, "flair": "none", "scrapCredits": 0, "color": "#8A8D93" },
+    "common": { "name": "Common", "weight": 70, "budgetBonus": 0, "traits": 1, "flair": "none", "scrapCredits": 10, "color": "#F1EFEA" },
+    "rare": { "name": "Rare", "weight": 22, "budgetBonus": 0.02, "traits": 1, "flair": "pinstripe", "scrapCredits": 25, "color": "#4FA3F7" },
+    "epic": { "name": "Epic", "weight": 7, "budgetBonus": 0.035, "traits": 2, "flair": "carbon_weave", "scrapCredits": 60, "color": "#B36BFF" },
+    "legendary": { "name": "Legendary", "weight": 1, "budgetBonus": 0.05, "traits": 2, "flair": "gold_trim", "scrapCredits": 150, "color": "#F2C230" }
+  },
+
+  "families": {
+    "high_downforce": { "name": "High downforce", "about": "Load first: strong in corners, draggy." },
+    "low_drag": { "name": "Low drag", "about": "Trimmed for straights and energy." },
+    "ground_effect": { "name": "Ground effect", "about": "The floor makes the load; the rest of the car feeds it." }
+  },
+
+  "areas": {
+    "front_wing": {
+      "name": "Front wing",
+      "lifeKm": 1500,
+      "carLayer": true,
+      "baseline": { "name": "Standard front wing", "look": "outwash", "description": "The team's standard wing: no strengths, no weaknesses." },
+      "concepts": {
+        "outwash": {
+          "name": "Outwash front wing",
+          "family": "high_downforce",
+          "description": "Flap tips and endplates turn the air outward, pushing the front tyres' wake away from the floor: strong, steady front load for some drag.",
+          "stats": { "downforce": [6, 16], "drag": [8, 24], "balance": [4, 12] },
+          "traits": ["floor_synergy", "front_bite", "low_drag"],
+          "sprite": "res://assets/sprites/parts/front_wing_outwash.png",
+          "carLayer": "front_wing_outwash"
+        },
+        "inwash": {
+          "name": "Inwash front wing",
+          "family": "low_drag",
+          "description": "Turns the flow inboard, toward the centre of the car and under the floor, as the 2022 rules intended: less front load and drag, a calmer wake.",
+          "stats": { "downforce": [-8, 4], "drag": [-24, -8], "balance": [-8, 0] },
+          "traits": ["floor_synergy", "low_drag", "front_bite"],
+          "sprite": "res://assets/sprites/parts/front_wing_inwash.png",
+          "carLayer": "front_wing_inwash"
+        },
+        "highnose": {
+          "name": "High-nose front wing",
+          "family": "ground_effect",
+          "description": "A raised nose and a wing hung on pylons leave a wide channel for air to reach the floor, feeding the ground-effect tunnels.",
+          "stats": { "downforce": [0, 10], "drag": [-10, 10], "balance": [-4, 6] },
+          "traits": ["floor_synergy", "front_bite", "low_drag"],
+          "sprite": "res://assets/sprites/parts/front_wing_highnose.png",
+          "carLayer": "front_wing_highnose"
+        }
+      }
+    },
+    "rear_wing": {
+      "name": "Rear wing",
+      "lifeKm": 1500,
+      "carLayer": true,
+      "baseline": { "name": "Standard rear wing", "look": "highdf", "description": "The team's standard rear wing: a middle-of-the-road compromise." },
+      "concepts": {
+        "spoon": {
+          "name": "Spoon rear wing",
+          "family": "low_drag",
+          "description": "A spoon-shaped mainplane, deep in the middle and shallow at the tips: sheds drag for long straights and gives up rear load.",
+          "stats": { "downforce": [-14, -4], "drag": [-30, -12], "balance": [2, 10] },
+          "traits": ["floor_synergy", "low_drag", "planted_rear"],
+          "sprite": "res://assets/sprites/parts/rear_wing_spoon.png",
+          "carLayer": "rear_wing_spoon"
+        },
+        "highdf": {
+          "name": "High-downforce rear wing",
+          "family": "high_downforce",
+          "description": "A deep mainplane and steep flap for maximum rear load: planted in fast corners, slow on the straights and hungry for battery.",
+          "stats": { "downforce": [8, 20], "drag": [18, 36], "balance": [-12, -3] },
+          "traits": ["floor_synergy", "planted_rear", "low_drag"],
+          "sprite": "res://assets/sprites/parts/rear_wing_highdf.png",
+          "carLayer": "rear_wing_highdf"
+        },
+        "beam": {
+          "name": "Beam-wing rear wing",
+          "family": "ground_effect",
+          "description": "A large beam wing below the main wing pulls air out of the diffuser, so the floor makes more of the rear load at moderate drag.",
+          "stats": { "downforce": [2, 12], "drag": [0, 20], "balance": [-6, 2] },
+          "traits": ["floor_synergy", "planted_rear"],
+          "sprite": "res://assets/sprites/parts/rear_wing_beam.png",
+          "carLayer": "rear_wing_beam"
+        }
+      }
+    },
+    "sidepods": {
+      "name": "Sidepods",
+      "lifeKm": 2000,
+      "carLayer": true,
+      "baseline": { "name": "Standard sidepods", "look": "downwash", "description": "Standard bodywork with conservative cooling." },
+      "concepts": {
+        "downwash": {
+          "name": "Downwash sidepods",
+          "family": "high_downforce",
+          "description": "Sidepods that slope steeply down to the rear, sending air onto the top of the floor and toward the beam wing.",
+          "stats": { "downforce": [3, 10], "drag": [0, 14], "power": [-2, 2] },
+          "traits": ["floor_synergy", "cool_running", "low_drag"],
+          "sprite": "res://assets/sprites/parts/sidepods_downwash.png",
+          "carLayer": "sidepods_downwash"
+        },
+        "zeropod": {
+          "name": "Zero-pod sidepods",
+          "family": "low_drag",
+          "description": "Minimal sidepods with tiny inlets: the least frontal area and drag, but tight cooling holds the power unit back.",
+          "stats": { "downforce": [-6, 2], "drag": [-24, -8], "power": [-4, 0] },
+          "traits": ["cool_running", "low_drag", "floor_synergy"],
+          "sprite": "res://assets/sprites/parts/sidepods_zeropod.png",
+          "carLayer": "sidepods_zeropod"
+        },
+        "undercut": {
+          "name": "Undercut sidepods",
+          "family": "ground_effect",
+          "description": "A deep undercut below the inlets channels air along the floor edge to seal the tunnels: more floor load, a warmer power unit.",
+          "stats": { "downforce": [2, 10], "drag": [0, 14], "power": [-3, 1] },
+          "traits": ["floor_synergy", "cool_running"],
+          "sprite": "res://assets/sprites/parts/sidepods_undercut.png",
+          "carLayer": "sidepods_undercut"
+        }
+      }
+    },
+    "floor": {
+      "name": "Floor",
+      "lifeKm": 1800,
+      "carLayer": true,
+      "baseline": { "name": "Standard floor", "look": "low_rake", "description": "A flat, forgiving standard floor." },
+      "concepts": {
+        "high_rake": {
+          "name": "High-rake floor",
+          "family": "high_downforce",
+          "description": "Runs nose-down with the rear high, growing the diffuser's volume: big load and a forward balance, but a stiff, twitchy platform.",
+          "stats": { "downforce": [8, 20], "drag": [6, 18], "balance": [2, 10], "grip": [-4, 0] },
+          "traits": ["kerb_friendly", "planted_rear", "low_drag"],
+          "sprite": "res://assets/sprites/parts/floor_high_rake.png",
+          "carLayer": "floor_high_rake"
+        },
+        "low_rake": {
+          "name": "Low-rake floor",
+          "family": "low_drag",
+          "description": "A flat, low platform: efficient and calm over bumps, with less peak load.",
+          "stats": { "downforce": [-10, 2], "drag": [-24, -8], "balance": [-4, 4], "grip": [-1, 2] },
+          "traits": ["low_drag", "kerb_friendly"],
+          "sprite": "res://assets/sprites/parts/floor_low_rake.png",
+          "carLayer": "floor_low_rake"
+        },
+        "venturi": {
+          "name": "Venturi floor",
+          "family": "ground_effect",
+          "description": "Deep venturi tunnels under the car make ground-effect downforce with little drag; it needs a stiff, low car, so mechanical grip suffers.",
+          "stats": { "downforce": [8, 18], "drag": [-6, 8], "balance": [-6, 4], "grip": [-5, -1] },
+          "traits": ["planted_rear", "low_drag"],
+          "sprite": "res://assets/sprites/parts/floor_venturi.png",
+          "carLayer": "floor_venturi"
+        }
+      }
+    },
+    "suspension": {
+      "name": "Suspension",
+      "lifeKm": 2000,
+      "carLayer": false,
+      "baseline": { "name": "Standard suspension", "look": null, "description": "Standard double wishbones, set up to be safe." },
+      "concepts": {
+        "pushrod": {
+          "name": "Push-rod suspension",
+          "family": null,
+          "description": "The rod runs from the bottom of the upright up to a rocker high on the chassis: compliant and easy to tune, with good mechanical grip and traction.",
+          "stats": { "grip": [-1, 4], "traction": [0, 12], "downforce": [-8, 0] },
+          "traits": ["kerb_friendly", "street_specialist", "front_bite"],
+          "sprite": "res://assets/sprites/parts/suspension_pushrod.png",
+          "carLayer": null
+        },
+        "pullrod": {
+          "name": "Pull-rod suspension",
+          "family": null,
+          "description": "The rod runs from the top of the upright down to a rocker low in the chassis: lower centre of gravity and cleaner flow to the floor, but stiffer.",
+          "stats": { "downforce": [0, 8], "drag": [-8, 0], "grip": [-2, 2], "traction": [-8, 4] },
+          "traits": ["front_bite", "planted_rear", "street_specialist"],
+          "sprite": "res://assets/sprites/parts/suspension_pullrod.png",
+          "carLayer": null
+        }
+      }
+    },
+    "power_unit": {
+      "name": "Power unit",
+      "lifeKm": 2500,
+      "carLayer": false,
+      "baseline": { "name": "Standard power unit", "look": null, "description": "The customer power unit on its standard map." },
+      "concepts": {
+        "torque": {
+          "name": "Torque-map power unit",
+          "family": null,
+          "description": "Engine and hybrid mapped for low and mid-range torque: punches out of slow corners.",
+          "stats": { "traction": [4, 16], "power": [-4, 2], "harvest": [-30, 10] },
+          "traits": ["street_specialist", "efficient", "cool_running"],
+          "sprite": "res://assets/sprites/parts/power_unit_torque.png",
+          "carLayer": null
+        },
+        "topend": {
+          "name": "Top-end power unit",
+          "family": null,
+          "description": "Mapped for peak power at high revs: fastest on long straights, but it harvests less energy.",
+          "stats": { "power": [3, 10], "harvest": [-60, -20], "traction": [-10, 0] },
+          "traits": ["cool_running", "efficient"],
+          "sprite": "res://assets/sprites/parts/power_unit_topend.png",
+          "carLayer": null
+        },
+        "efficiency": {
+          "name": "Efficiency power unit",
+          "family": null,
+          "description": "Maximum energy recovery and careful deployment: more Boost per lap, less peak power.",
+          "stats": { "harvest": [20, 60], "power": [-4, 2], "traction": [-4, 4] },
+          "traits": ["efficient", "cool_running", "street_specialist"],
+          "sprite": "res://assets/sprites/parts/power_unit_efficiency.png",
+          "carLayer": null
+        }
+      }
+    }
+  },
+
+  "traits": {
+    "street_specialist": { "name": "Street specialist", "description": "Tuned for slow corners: more traction and low-speed grip, a little more drag.", "delta": { "traction": 8, "grip": 1, "drag": 6 } },
+    "low_drag": { "name": "Low drag", "description": "Trimmed for the straights: less drag, less load.", "delta": { "drag": -6, "downforce": -4 } },
+    "floor_synergy": { "name": "Floor synergy", "description": "Shaped to feed one floor philosophy: +4 downforce when the fitted floor is from the same family. Costs some of the part's budget.", "delta": {}, "budgetCost": 30, "conditional": { "when": "floor_family_matches", "delta": { "downforce": 4 } } },
+    "cool_running": { "name": "Cool running", "description": "Runs cool, so the cooling openings can close up: less drag, a slightly lower power ceiling.", "delta": { "drag": -5, "power": -1 } },
+    "kerb_friendly": { "name": "Kerb friendly", "description": "Compliant over kerbs and bumps: keeps mechanical grip, loses a little aero platform.", "delta": { "grip": 2, "downforce": -5 } },
+    "efficient": { "name": "Efficient", "description": "Recovers more energy under braking, at a small cost in peak power.", "delta": { "harvest": 25, "power": -1 } },
+    "front_bite": { "name": "Front bite", "description": "Extra front load for a sharper turn-in; the rear goes lighter.", "delta": { "balance": 5, "downforce": 2, "drag": 3 } },
+    "planted_rear": { "name": "Planted rear", "description": "Stable on corner exits, a touch lazier on turn-in.", "delta": { "balance": -5, "traction": 4, "drag": 4 } }
+  },
+
+  "synergies": [
+    { "id": "aero_family", "name": "Matched aero family", "description": "Front wing, rear wing and floor share one philosophy, so the airflow works as one system.", "when": { "sameFamily": ["front_wing", "rear_wing", "floor"] }, "delta": { "downforce": 10 } },
+    { "id": "clean_floor_edge", "name": "Clean floor edge", "description": "Sidepods and floor from the same family keep the floor edge sealed.", "when": { "sameFamily": ["sidepods", "floor"] }, "delta": { "drag": -3 } },
+    { "id": "wake_mismatch", "name": "Wake mismatch", "description": "The outwash wing loads the nose while the spoon wing sheds rear load: the car oversteers in fast corners.", "when": { "concepts": { "front_wing": "outwash", "rear_wing": "spoon" } }, "delta": { "balance": 6, "downforce": -4 } },
+    { "id": "stiff_platform", "name": "Stiff platform", "description": "Pull-rod suspension holds the venturi floor at a steady ride height.", "when": { "concepts": { "floor": "venturi", "suspension": "pullrod" } }, "delta": { "downforce": 4 } },
+    { "id": "pitch_sensitive", "name": "Pitch sensitive", "description": "Soft push-rod suspension lets the venturi floor pitch and stall under braking.", "when": { "concepts": { "floor": "venturi", "suspension": "pushrod" } }, "delta": { "downforce": -5 } }
+  ],
+
+  "packs": {
+    "partsPerPack": 3,
+    "maxSameArea": 2,
+    "earn": {
+      "first_quali": { "name": "First qualifying lap of the day", "packs": 1, "per": "day" },
+      "quali_top3": { "name": "Top 3 in qualifying", "packs": 1, "per": "day" },
+      "race_finish": { "name": "Race finish", "packs": 1, "per": "race" }
+    }
+  }
+}

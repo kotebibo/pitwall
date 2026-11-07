@@ -1,0 +1,66 @@
+{
+  "canvas": [
+    80,
+    32
+  ],
+  "center": [
+    40,
+    16
+  ],
+  "px_per_m": 10,
+  "front_wheels": [
+    [
+      18,
+      -8
+    ],
+    [
+      18,
+      8
+    ]
+  ],
+  "rear_wheels": [
+    [
+      -18,
+      -8
+    ],
+    [
+      -18,
+      8
+    ]
+  ],
+  "front_tyre_canvas": [
+    10,
+    6
+  ],
+  "front_tyre_note": "tyre_front.png is centred on its wheel anchor; compound stripe is on the top edge (outer side of the left/upper wheel): use flip_v for the lower (+y) wheel.",
+  "rain_light": [
+    -30,
+    0
+  ],
+  "exhaust": [
+    -25,
+    0
+  ],
+  "helmet": [
+    4,
+    0
+  ],
+  "stack": [
+    "shadow",
+    "floor_*",
+    "tyre_rear",
+    "tyre_front x2",
+    "brake_disc_glow",
+    "sidepods_*_paint",
+    "sidepods_*_detail",
+    "body_paint",
+    "body_detail",
+    "front_wing_*_paint",
+    "front_wing_*_detail",
+    "rear_wing_*[_open]_paint",
+    "rear_wing_*[_open]_detail",
+    "helmet_paint",
+    "halo_detail",
+    "lights"
+  ]
+}

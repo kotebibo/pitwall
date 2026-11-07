@@ -1,0 +1,15 @@
+[
+  {
+    "slide": 7,
+    "issues": [
+      {
+        "kind": "too-many-words",
+        "px": 42
+      }
+    ],
+    "words": 42,
+    "hasVisual": true,
+    "layout": "two-col",
+    "title": "The weekend, block by block"
+  }
+]

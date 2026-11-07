@@ -1,0 +1,17 @@
+{
+  "name": "@pitwall/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pit Wall race server: runs races on-chain, simulates them and serves replays.",
+  "scripts": {
+    "start": "node src/index.ts",
+    "verify": "node src/verify-cli.ts",
+    "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@anchor-lang/core": "^1.2.2",
+    "@pitwall/sim": "workspace:*",
+    "@solana/web3.js": "^1.98.0"
+  }
+}

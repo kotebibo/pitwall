@@ -1,0 +1,11 @@
+{
+  "name": "@pitwall/sim",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic race simulation: a pure function of (track, entries, seed). Source of truth for race results.",
+  "exports": { ".": "./src/sim.ts" },
+  "scripts": {
+    "test": "node --test test/"
+  }
+}

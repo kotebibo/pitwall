@@ -1,0 +1,291 @@
+{
+  "px_per_m": 10,
+  "note": "Pixel-corner coordinates, y down. Sprites face +y ('down') unless 'facing' says otherwise. For crew on the +y side of the car use flip_v and mirror the anchor: y' = height - y. Draw order per sprite: _paint (modulate = team colour), [carriers only: tyre_held_<compound>.png centred on anchors.wheel_center, flip_v'd with the carrier], _detail (untinted). The drop shadow lives in _paint (black survives the tint).",
+  "sprites": {
+    "crew_tyre_gunner_a": {
+      "size": [
+        16,
+        16
+      ],
+      "facing": "down",
+      "anchors": {
+        "socket_tip": [
+          8,
+          15
+        ]
+      }
+    },
+    "crew_tyre_gunner_b": {
+      "size": [
+        16,
+        16
+      ],
+      "facing": "down",
+      "anchors": {
+        "socket_tip": [
+          8,
+          15
+        ]
+      }
+    },
+    "crew_tyre_carrier_a": {
+      "size": [
+        16,
+        18
+      ],
+      "facing": "down",
+      "anchors": {
+        "wheel_topleft": [
+          4,
+          10
+        ],
+        "wheel_center": [
+          8.5,
+          13.5
+        ]
+      }
+    },
+    "crew_tyre_carrier_b": {
+      "size": [
+        16,
+        18
+      ],
+      "facing": "down",
+      "anchors": {
+        "wheel_topleft": [
+          4,
+          11
+        ],
+        "wheel_center": [
+          8.5,
+          14.5
+        ]
+      }
+    },
+    "crew_jack_front": {
+      "size": [
+        22,
+        16
+      ],
+      "facing": "left",
+      "anchors": {
+        "lift_point": [
+          1,
+          8
+        ]
+      }
+    },
+    "crew_jack_rear": {
+      "size": [
+        22,
+        16
+      ],
+      "facing": "right",
+      "anchors": {
+        "lift_point": [
+          21,
+          8
+        ]
+      }
+    },
+    "crew_lollipop_stop": {
+      "size": [
+        22,
+        22
+      ],
+      "facing": "left",
+      "anchors": {
+        "sign_center": [
+          4.5,
+          18.5
+        ]
+      }
+    },
+    "crew_lollipop_go": {
+      "size": [
+        22,
+        22
+      ],
+      "facing": "left",
+      "anchors": {
+        "sign_center": [
+          7.5,
+          15.5
+        ]
+      }
+    }
+  },
+  "frames": {
+    "crew_tyre_gunner": [
+      "a",
+      "b"
+    ],
+    "crew_tyre_carrier": [
+      "a",
+      "b"
+    ],
+    "crew_lollipop": [
+      "stop",
+      "go"
+    ]
+  },
+  "pit_stop_layout": {
+    "note": "Points are relative to the car centre (pixel corner (40, 16) of the 80x32 car canvas), nose +x. Put the named anchor of the sprite on the point. layer: under_car = draw after car/shadow.png but before the car floor (the jack heads go under the car); over_car = draw after the car. Use frame a/b alternately so the crew look busy.",
+    "car_center_in_canvas": [
+      40,
+      16
+    ],
+    "crew": [
+      {
+        "sprite": "crew_jack_front",
+        "anchor": "lift_point",
+        "at": [
+          30,
+          0
+        ],
+        "flip_v": false,
+        "layer": "under_car"
+      },
+      {
+        "sprite": "crew_jack_rear",
+        "anchor": "lift_point",
+        "at": [
+          -29,
+          0
+        ],
+        "flip_v": false,
+        "layer": "under_car"
+      },
+      {
+        "sprite": "crew_tyre_gunner",
+        "anchor": "socket_tip",
+        "at": [
+          18,
+          -10
+        ],
+        "flip_v": false,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_tyre_gunner",
+        "anchor": "socket_tip",
+        "at": [
+          -18,
+          -10
+        ],
+        "flip_v": false,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_tyre_gunner",
+        "anchor": "socket_tip",
+        "at": [
+          18,
+          10
+        ],
+        "flip_v": true,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_tyre_gunner",
+        "anchor": "socket_tip",
+        "at": [
+          -18,
+          10
+        ],
+        "flip_v": true,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_tyre_carrier",
+        "anchor": "wheel_center",
+        "at": [
+          32,
+          -14
+        ],
+        "flip_v": false,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_tyre_carrier",
+        "anchor": "wheel_center",
+        "at": [
+          -32,
+          -14
+        ],
+        "flip_v": false,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_tyre_carrier",
+        "anchor": "wheel_center",
+        "at": [
+          32,
+          14
+        ],
+        "flip_v": true,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_tyre_carrier",
+        "anchor": "wheel_center",
+        "at": [
+          -32,
+          14
+        ],
+        "flip_v": true,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_tyre_carrier",
+        "anchor": "wheel_center",
+        "at": [
+          6,
+          -15
+        ],
+        "flip_v": false,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_tyre_carrier",
+        "anchor": "wheel_center",
+        "at": [
+          -6,
+          -15
+        ],
+        "flip_v": false,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_tyre_carrier",
+        "anchor": "wheel_center",
+        "at": [
+          6,
+          15
+        ],
+        "flip_v": true,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_tyre_carrier",
+        "anchor": "wheel_center",
+        "at": [
+          -6,
+          15
+        ],
+        "flip_v": true,
+        "layer": "over_car"
+      },
+      {
+        "sprite": "crew_lollipop",
+        "anchor": "sign_center",
+        "at": [
+          36,
+          -5
+        ],
+        "flip_v": false,
+        "layer": "over_car"
+      }
+    ]
+  }
+}

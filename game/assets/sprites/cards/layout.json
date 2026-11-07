@@ -1,0 +1,62 @@
+{
+  "card": [
+    112,
+    152
+  ],
+  "art_window": [
+    24,
+    18,
+    64,
+    64
+  ],
+  "rarity_label": [
+    34,
+    5,
+    44,
+    9
+  ],
+  "name_plate": [
+    8,
+    87,
+    96,
+    13
+  ],
+  "stats_area": [
+    8,
+    104,
+    96,
+    38
+  ],
+  "stat_rows": [
+    [
+      11,
+      105,
+      90,
+      11
+    ],
+    [
+      11,
+      117,
+      90,
+      11
+    ],
+    [
+      11,
+      129,
+      90,
+      11
+    ]
+  ],
+  "rarity_pips_y": 145,
+  "glow": {
+    "size": [
+      136,
+      176
+    ],
+    "card_offset": [
+      12,
+      12
+    ]
+  },
+  "note": "rects are [x, y, w, h] in card pixels; art window is transparent (optional window_bg_<rarity>.png fits it exactly)."
+}

@@ -1,0 +1,29 @@
+# Godot
+game/.godot/
+game/android/
+*.translation
+# builds
+build/
+# node
+node_modules/
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+*.tmp
+
+# Anchor
+target/
+.anchor/
+test-ledger/
+
+# local server data (accounts, password hashes, tokens, races) and secrets
+server/.data/
+.data/
+.env
+.env.*
+*-keypair.json
+id.json
+# temporary recording settings and footage
+game/override.cfg
+*.avi

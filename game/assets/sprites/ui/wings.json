@@ -1,0 +1,38 @@
+{
+  "rear": {
+    "main": "wing_side_main.png",
+    "flap": "wing_side_flap.png",
+    "flap_pivot": [
+      16,
+      9
+    ],
+    "flap_pivot_in_main": [
+      59,
+      10
+    ],
+    "flap_angle_deg": {
+      "high_downforce": -24,
+      "default": -18,
+      "low_drag": -10,
+      "drs_open": -2
+    },
+    "note": "Pivot is near the flap leading edge. Place the flap so flap_pivot lands on flap_pivot_in_main, then rotate by the angle (Godot degrees, clockwise positive). Car travels to the left; negative raises the trailing edge. The flap may overhang the main image at steep angles."
+  },
+  "front": {
+    "main": "front_wing_side.png",
+    "flap": "front_wing_side_flap.png",
+    "flap_pivot": [
+      8,
+      6
+    ],
+    "flap_pivot_in_main": [
+      61,
+      10
+    ],
+    "flap_angle_deg": {
+      "high_downforce": -22,
+      "default": -15,
+      "low_drag": -8
+    }
+  }
+}

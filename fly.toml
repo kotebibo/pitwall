@@ -1,0 +1,58 @@
+# Fly.io config for Pit Wall: one machine serves the web game, the JSON API and
+# the headless-Godot re-drives. Deploy steps: deploy/README.md.
+#
+# App names are global across Fly.io: change this before the first deploy
+# (e.g. "pitwall-<yourname>"). The URL becomes https://<app>.fly.dev
+app = "pitwall-game"
+
+# Frankfurt: closest big region to Tbilisi (~60 ms) with spare capacity.
+# Alternatives: "waw" (Warsaw), "otp" (Bucharest); check `fly platform regions`
+# first, smaller regions sometimes take no new machines.
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Non-secret settings (the Dockerfile sets the same defaults).
+# Secrets (never in this file): SEED_SECRET, AUTHORITY_KEYPAIR_JSON (fly secrets set).
+[env]
+  PORT = "8080"
+  RPC_URL = "https://api.devnet.solana.com"
+  DATA_DIR = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Scale to zero: the machine stops a few minutes after the last request and
+  # starts again (a few seconds) on the next one. Data stays on the volume.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 50
+    hard_limit = 100
+
+  # Startup talks to devnet (Config + driver accounts) before listening: give it time.
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "30s"
+    timeout = "5s"
+    method = "GET"
+    path = "/api/health"
+
+# Replays, qualifying results, garages and packs live here (JSON files).
+# Exactly ONE machine: all state is on this volume, so never scale above 1.
+[[mounts]]
+  source = "pitwall_data"
+  destination = "/data"
+
+# 1 GB leaves room for the server (~60 MB) plus a headless Godot re-drive
+# (~110 MB peak each, one at a time). A race re-drive is ~7 s of CPU.
+# Cost: ~$5.70/month if it ran 24/7 (billed per second while running); with
+# auto-stop it is mostly the 1 GB volume (~$0.15/month) + stopped rootfs
+# (~$0.10/month) + traffic (~44 MB per first game load, $0.02/GB in Europe).
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1024mb"
