@@ -18,7 +18,6 @@ var _closes: Label
 var _items := {}
 var _showcase: CarShowcase
 var _account_chip: Button
-var _settings_button: Button
 var _settings: SettingsScreen
 
 
@@ -191,7 +190,6 @@ func _build() -> void:
 	gear.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	gear.pressed.connect(open_settings)
 	add_child(gear)
-	_settings_button = gear
 
 	# Footer
 	_status = Ui.label("", Ui.SIZE_SMALL, Ui.INK_3)

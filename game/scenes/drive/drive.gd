@@ -87,12 +87,13 @@ func _ready() -> void:
 	_start_attempt()
 	if rival_attempt != "":
 		_load_rival()
-	if OS.is_debug_build() and "--settings" in Api.args:
-		# testing: the settings overlay over a paused drive
+	if OS.is_debug_build() and ("--settings" in Api.args or "--pause" in Api.args):
+		# testing: the pause menu, and the settings overlay over it
 		await get_tree().create_timer(1.0).timeout
 		if _state == "waiting" or _state == "driving":
 			_toggle_pause()
-			_open_settings()
+			if "--settings" in Api.args:
+				_open_settings()
 
 
 ## Re-drives the rival's verified run with the same physics to get their exact path.
