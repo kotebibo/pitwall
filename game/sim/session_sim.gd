@@ -4,7 +4,7 @@ extends RefCounted
 ## different settings. Steps the car, times laps and sectors to the microsecond
 ## and records every tick's inputs so the server can re-drive the run.
 
-const PHYSICS_VERSION := 4
+const PHYSICS_VERSION := 5
 const US_PER_TICK_FP := 7864320  # 120 << 16: lap time = ticks_fp * 1e6 / this
 
 enum Kind { PRACTICE, QUALIFYING, RACE }

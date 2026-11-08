@@ -17,7 +17,13 @@ var _area := "front_wing"
 var _list: VBoxContainer
 var _list_title: Label
 var _detail: RichTextLabel
+var _perf: PerfPanel
+var _detail_more: RichTextLabel
+var _desc: Label
 var _fit: Button
+var _scrap: Button
+var _test: Button
+var _scrap_armed := false
 var _selected: Dictionary = {}
 var _spec_box: VBoxContainer
 var _status: Label
@@ -167,20 +173,40 @@ func _parts_page() -> Control:
 	_list = Ui.vbox(3)
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_list)
-	_detail = RichTextLabel.new()
-	_detail.bbcode_enabled = true
-	_detail.fit_content = true
-	_detail.scroll_active = false
-	_detail.add_theme_font_size_override("normal_font_size", Ui.SIZE_SMALL)
-	_detail.add_theme_font_size_override("bold_font_size", Ui.SIZE_SMALL)
-	_detail.add_theme_font_override("bold_font", Ui.font_bold)
-	_detail.custom_minimum_size = Vector2(0, 84)
+	_detail = _detail_label()
 	v.add_child(_detail)
+	# two lines of the concept's story; all of it on hover
+	_desc = Ui.label("", Ui.SIZE_SMALL, Ui.INK_2)
+	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_desc.max_lines_visible = 2
+	_desc.add_theme_constant_override("line_spacing", -3)
+	_desc.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_desc.custom_minimum_size = Vector2(60, 0)
+	_desc.mouse_filter = Control.MOUSE_FILTER_PASS
+	v.add_child(_desc)
+	# How the part changes the driving, against the car as it is now
+	_perf = PerfPanel.new()
+	v.add_child(_perf)
+	_detail_more = _detail_label()
+	v.add_child(_detail_more)
+	var buttons := Ui.hbox(4)
+	v.add_child(buttons)
 	_fit = Ui.button("FIT PART", true)
 	_fit.tooltip_text = "Swap this part onto the car. Try it in Practice straight away.\nQualifying keeps the car you first qualified with (parc ferme)."
 	_fit.custom_minimum_size = Vector2(0, 22)
+	_fit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_fit.pressed.connect(_equip_selected)
-	v.add_child(_fit)
+	buttons.add_child(_fit)
+	_test = Ui.button("TEST DRIVE")
+	_test.tooltip_text = "The autopilot drives a lap of Mtkvari with your car now and with this part, and shows where it gains or loses time."
+	_test.custom_minimum_size = Vector2(0, 22)
+	_test.pressed.connect(_test_drive)
+	buttons.add_child(_test)
+	_scrap = Ui.button("SCRAP")
+	_scrap.tooltip_text = "Scrap this part for R&D credits (more for rarer parts). It leaves your garage for good."
+	_scrap.custom_minimum_size = Vector2(0, 22)
+	_scrap.pressed.connect(_scrap_selected)
+	buttons.add_child(_scrap)
 	# Car spec summary
 	_spec_box = Ui.vbox(2)
 	_spec_box.anchor_top = 0.78
@@ -191,6 +217,17 @@ func _parts_page() -> Control:
 	_spec_box.offset_bottom = -22
 	page.add_child(_spec_box)
 	return page
+
+
+func _detail_label() -> RichTextLabel:
+	var l := RichTextLabel.new()
+	l.bbcode_enabled = true
+	l.fit_content = true
+	l.scroll_active = false
+	l.add_theme_font_size_override("normal_font_size", Ui.SIZE_SMALL)
+	l.add_theme_font_size_override("bold_font_size", Ui.SIZE_SMALL)
+	l.add_theme_font_override("bold_font", Ui.font_bold)
+	return l
 
 
 func _slot(area: String) -> Control:
@@ -303,48 +340,131 @@ func _try_on(p: Dictionary) -> void:
 	if look != _preview.look:
 		_preview.look = look
 		_preview.rebuild()
+	# the bars follow the hover, and go back to the picked part after
+	if not p.is_empty():
+		_perf.show_part(p, true)
+	elif not _selected.is_empty():
+		_perf.show_part(_selected)
 
 
 func _pick(p: Dictionary) -> void:
 	_selected = p
+	_scrap_armed = false
 	for row in _list.get_children():
 		if row is PartCard:
 			(row as PartCard).selected = (row as PartCard).part.get("id") == p.get("id")
 			row.queue_redraw()
 	var area := String(p.get("area", _area))
 	var concept := String(p.get("concept", ""))
-	var fitted := Catalog.equipped_part(area)
-	var text := "[b]%s[/b]  [color=#%s]%s[/color]\n" % [PartCard.part_name(p).to_upper(), PartCard.rarity_color(String(p.get("rarity", ""))).to_html(false), String(p.get("rarity", "")).to_upper()]
+	var display: Dictionary = p.get("display") if p.get("display") is Dictionary else {}
+	var rarity := String(p.get("rarity", ""))
+	var retired := bool(display.get("retired", false))
+	var kg := PartCard.weight(p)
+	var kg_text := "  [color=#%s]%s[/color]" % [Catalog.stat_color("weight", kg).to_html(false), Catalog.format_stat("weight", kg)] if kg != 0 else ""
+	_detail.text = "[b]%s[/b]  [color=#%s]%s[/color]%s%s" % [PartCard.part_name(p).to_upper(), PartCard.rarity_color(rarity).to_html(false), rarity.to_upper(), kg_text, "  [color=#6e6f78]RETIRED[/color]" if retired else ""]
 	var desc := Catalog.concept_description(area, concept)
-	if desc != "":
-		text += "[color=#a3a3ad]%s[/color]\n" % desc
+	if desc == "":
+		desc = String(display.get("description", ""))
+	_desc.text = desc
+	_desc.tooltip_text = desc
+	_desc.visible = desc != ""
+	_perf.show_part(p)
+	# The part's own numbers, for those who want them, on hover: the bars say what they do
+	var more := ""
 	var stats: Dictionary = p.get("stats", {})
-	var fstats: Dictionary = fitted.get("stats", {})
-	for k: String in Catalog.STAT_ORDER:
+	var bits: Array[String] = []
+	for k: String in Catalog.STAT_ORDER + ["weight"]:
 		var v := int(stats.get(k, 0))
-		var d := v - int(fstats.get(k, 0))
-		if v == 0 and d == 0:
-			continue
-		var col := Catalog.stat_color(k, v).to_html(false)
-		var delta := ""
-		if p.get("id") != fitted.get("id") and d != 0:
-			delta = "  [color=#%s](%s vs fitted)[/color]" % [Catalog.stat_color(k, d).to_html(false), Catalog.format_stat(k, d)]
-		text += "%s  [color=#%s]%s[/color]%s\n" % [Catalog.STAT_NAMES[k], col, Catalog.format_stat(k, v), delta]
+		if v != 0:
+			bits.append("%s %s" % [Catalog.STAT_NAMES.get(k, k.to_upper()), Catalog.format_stat(k, v)])
+	_detail.tooltip_text = ("The part's own numbers (against the standard part):\n" + "\n".join(bits)) if not bits.is_empty() else ""
 	var traits: Array = p.get("traits", [])
-	var display: Variant = p.get("display")
-	if display is Dictionary and (display as Dictionary).get("traits") is Array:
+	if display.get("traits") is Array:
 		traits = display["traits"]
 	if not traits.is_empty():
 		var names := traits.map(func(t: Variant) -> String: return String(t.get("name", t.get("id", ""))) if t is Dictionary else String(t))
-		text += "[color=#f2c230]%s[/color]\n" % "  ·  ".join(names)
-	if p.has("km"):
-		text += "[color=#6e6f78]%d km · %d races · %d wins[/color]" % [int(p.get("km", 0)), int(p.get("races", 0)), int(p.get("wins", 0))]
-	_detail.text = text
+		more += "[color=#f2c230]%s[/color]\n" % "  ·  ".join(names)
+	if rarity == "starter":
+		more += "[color=#6e6f78]Starter part: it never wears out.[/color]"
+	elif p.has("km"):
+		var km := float(p.get("km", 0))
+		var left := float(display.get("kmLeft", maxf(0.0, float(display.get("lifeKm", 0)) - km)))
+		var effect := int(display.get("effect", 1000))
+		more += "[color=#a3a3ad]%s km driven · %s km left[/color] [color=#6e6f78]· %d races · %d wins[/color]" % [_km(km), _km(left), int(p.get("races", 0)), int(p.get("wins", 0))]
+		if retired:
+			more += "\n[color=#e8352b]RETIRED: worn out. Scrap it for R&D credits.[/color]"
+		elif effect < 1000:
+			more += "\n[color=#f2c230]WORN: %d%% effect[/color] [color=#6e6f78]its changes fade as it wears[/color]" % roundi(effect / 10.0)
+	_detail_more.text = more
 	var is_fitted: bool = String(p.get("id", "")) == Catalog.equipped_id(area) or (p.get("rarity") == "starter" and Catalog.equipped_id(area) == "")
-	_fit.disabled = is_fitted or not p.has("id")
-	_fit.text = "FITTED" if is_fitted else "FIT PART"
+	_fit.disabled = is_fitted or not p.has("id") or retired
+	_fit.text = "FITTED" if is_fitted else ("RETIRED" if retired else "FIT PART")
+	_test.visible = p.has("id") and not retired and not (is_fitted and rarity == "starter")
+	var credits := _scrap_credits(rarity)
+	_scrap.visible = not is_fitted and p.has("id") and rarity != "starter"
+	_scrap.disabled = false
+	_scrap.text = "SCRAP +%d" % credits
+	_scrap.tooltip_text = "Scrap this part for %d R&D credits. It leaves your garage for good." % credits
 	if Profile.setup_locked() and not is_fitted:
 		_status.text = "Parc ferme: today's qualifying keeps the car you first qualified with. New parts count in practice now and in qualifying tomorrow."
+
+
+## TEST DRIVE: autopilot laps with the car now and with the picked part (or, for
+## the fitted part, with the standard part instead), then where it gains and loses.
+func _test_drive() -> void:
+	if _selected.is_empty():
+		return
+	var area := String(_selected.get("area", _area))
+	var standard := {"area": area, "concept": "baseline", "rarity": "starter", "stats": {}}
+	var is_fitted := String(_selected.get("id", "")) == Catalog.equipped_id(area)
+	var panel := TestDrivePanel.new()
+	panel.title = ("%s %s" % [PartCard.part_name(_selected).to_upper(), PartCard.serial(_selected)]).strip_edges()
+	if is_fitted:
+		panel.base_spec = CarPerf.spec_of(PerfPanel.fitted_with(area, standard), Catalog.data)
+		panel.part_spec = CarPerf.spec_of(PerfPanel.fitted_with(), Catalog.data)
+		panel.caption = "Fitted now: against the standard part in its place."
+	else:
+		panel.base_spec = CarPerf.spec_of(PerfPanel.fitted_with(), Catalog.data)
+		panel.part_spec = CarPerf.spec_of(PerfPanel.fitted_with(area, _selected), Catalog.data)
+		panel.caption = "Against your car as it is now."
+	add_child(panel)
+	await panel.closed
+	panel.queue_free()
+
+
+static func _km(km: float) -> String:
+	return "%d" % roundi(km) if km >= 100.0 or is_equal_approx(km, roundf(km)) else "%.1f" % km
+
+
+func _scrap_credits(rarity: String) -> int:
+	var r: Variant = (Catalog.data.get("rarities", {}) as Dictionary).get(rarity)
+	return int((r as Dictionary).get("scrapCredits", 0)) if r is Dictionary else 0
+
+
+## Scrapping takes two clicks: the first asks, the second scraps.
+func _scrap_selected() -> void:
+	if _selected.is_empty():
+		return
+	if not _scrap_armed:
+		_scrap_armed = true
+		_scrap.text = "SURE? +%d" % _scrap_credits(String(_selected.get("rarity", "")))
+		return
+	_scrap_armed = false
+	_scrap.disabled = true
+	var res: Variant = await Api.post_json("/api/garage/scrap", {"player": Profile.id, "partId": _selected.get("id", "")})
+	if res is Dictionary and (res as Dictionary).has("scrapped"):
+		var credits := int((res["scrapped"] as Dictionary).get("credits", 0))
+		res.erase("scrapped")
+		Catalog.garage = res
+		if has_node("/root/Sfx"):
+			get_node("/root/Sfx").call("play", "equip")
+		_refresh_slots()
+		_fill_list()
+		_refresh_spec()
+		_status.text = "Scrapped: +%d R&D credits (%d in total)." % [credits, int(Catalog.garage.get("credits", 0))]
+	else:
+		_status.text = ("Could not scrap the part: " + Api.last_error) if Api.last_error != "" else "Could not scrap the part (server offline)."
+		_scrap.disabled = false
 
 
 func _equip_selected() -> void:
@@ -376,11 +496,11 @@ func _refresh_spec() -> void:
 	head.add_child(Ui.label("changes from your parts vs a baseline car", Ui.SIZE_SMALL, Ui.INK_3))
 	_spec_box.add_child(head)
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = 6
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 1)
 	_spec_box.add_child(grid)
-	for k: String in ["downforce", "drag", "power", "grip", "traction", "harvest"]:
+	for k: String in ["downforce", "drag", "power", "grip", "traction", "harvest", "weight"]:
 		var v := int(spec.get(k, 0))
 		var name_label := Ui.label(Catalog.STAT_NAMES[k], Ui.SIZE_SMALL, Ui.INK_2)
 		name_label.tooltip_text = Catalog.STAT_HELP.get(k, "")
@@ -467,6 +587,8 @@ func _refresh_packs() -> void:
 		bar.custom_minimum_size = Vector2(280, 6)
 		info.add_child(bar)
 		info.add_child(Ui.label("%d of %d parts released this week. Scarce by design." % [minted, cap], Ui.SIZE_SMALL, Ui.INK))
+	if Catalog.garage.has("credits"):
+		info.add_child(Ui.label("R&D CREDITS: %d  (scrap parts you no longer need for more)" % int(Catalog.garage.get("credits", 0)), Ui.SIZE_SMALL, Ui.YELLOW))
 	var note := Ui.label("Parts live in your garage for free. They are minted on Solana only when you choose to trade one, and the trader pays the mint.", Ui.SIZE_SMALL, Ui.INK_3)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size = Vector2(300, 0)

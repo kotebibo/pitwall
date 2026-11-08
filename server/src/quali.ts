@@ -9,7 +9,7 @@ import { accountName, isAccountName } from "./accounts.ts";
 import * as chain from "./chain.ts";
 import { config } from "./config.ts";
 import { PLAYER_DRIVER, RIVALS } from "./content.ts";
-import { awardPack, carSpec, setEquipLockCheck, zeroSpec, type Spec } from "./parts.ts";
+import { addDistance, awardPack, carSpec, fittedPartIds, setEquipLockCheck, zeroSpec, type Spec } from "./parts.ts";
 import { hasOpenPass, recordPassLap } from "./passes.ts";
 import { redrive } from "./redrive.ts";
 
@@ -46,6 +46,10 @@ interface Attempt {
   stats: DriveStats;
   /** Parts spec at the start of the attempt (parts.ts carSpec); missing on attempts made before parts existed. */
   car?: Spec;
+  /** Parts fitted when the attempt started: a verified qualifying run's distance wears them. */
+  parts?: string[];
+  /** Km of this attempt already put on its parts (a run can be submitted again with a longer input log). */
+  kmCredited?: number;
   createdAt: number;
   best?: Lap;
 }
@@ -164,7 +168,7 @@ export async function startAttempt(player: string, name: string, session: string
     p.car ??= car;
     car = p.car;
   }
-  s.attempts[id] = { id, player, session: kind, seed, setup, stats, car, createdAt: Date.now() };
+  s.attempts[id] = { id, player, session: kind, seed, setup, stats, car, parts: fittedPartIds(player), createdAt: Date.now() };
   save(s);
   return { attempt: id, seed, setup, stats, car, eventId: s.eventId };
 }
@@ -175,7 +179,7 @@ export async function submitRun(attemptId: string, inputs: string) {
   if (!a) throw new Error("unknown attempt");
   if (Date.now() - a.createdAt > ATTEMPT_TTL_MS) throw new Error("attempt expired");
   if (typeof inputs !== "string" || inputs.length > 2_000_000) throw new Error("bad inputs");
-  const result = await redrive<{ physicsVersion: number; ticks: number; laps: Lap[]; inputHash: string }>({ track: CIRCUIT.id, setup: a.setup, stats: a.stats, car: a.car ?? zeroSpec(), seed: a.seed, inputs, kind: a.session === "pass" ? "qualifying" : a.session });
+  const result = await redrive<{ physicsVersion: number; ticks: number; laps: Lap[]; inputHash: string; metres?: number }>({ track: CIRCUIT.id, setup: a.setup, stats: a.stats, car: a.car ?? zeroSpec(), seed: a.seed, inputs, kind: a.session === "pass" ? "qualifying" : a.session });
   // A run must have been driven in real time: no more ticks than seconds since the seed was issued
   const elapsedTicks = ((Date.now() - a.createdAt) / 1000 + 3) * TICKS_PER_SECOND;
   if (config.realtimeCheck && result.ticks > elapsedTicks) throw new Error("run is longer than the time since it started");
@@ -185,6 +189,16 @@ export async function submitRun(attemptId: string, inputs: string) {
   const p = s.players[a.player];
   let personalBest = false;
   if (best && (!a.best || best.us < a.best.us)) a.best = best;
+  // Verified qualifying distance wears the parts that drove it (practice is not verified, so it does not count)
+  let kmDriven = 0;
+  if (a.session === "qualifying") {
+    const km = Math.max(0, Number(result.metres ?? 0)) / 1000;
+    kmDriven = Math.max(0, Math.round((km - (a.kmCredited ?? 0)) * 10) / 10);
+    if (kmDriven > 0) {
+      addDistance(a.player, kmDriven, a.parts);
+      a.kmCredited = Math.round(((a.kmCredited ?? 0) + kmDriven) * 10) / 10;
+    }
+  }
   if (best && a.session === "qualifying") {
     p.laps += valid.length;
     if (!p.best || best.us < p.best.us) {
@@ -221,6 +235,7 @@ export async function submitRun(attemptId: string, inputs: string) {
     position,
     packsEarned,
     pass,
+    kmDriven,
   };
 }
 

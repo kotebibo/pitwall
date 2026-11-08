@@ -126,8 +126,11 @@ It is frozen when the week starts and shown to players with its reset time. The 
 
 **Sinks:**
 
-- **Wear.** Each part has a mileage life (data now): wings 1,500 km, floor 1,800, sidepods and suspension 2,000, power unit 2,500. That is about 8 to 13 weeks of an active player's driving. Starter parts never wear out.
-- **Scrapping.** Scrapping a part gives R&D credits: 10, 25, 60 or 150 by rarity.
+- **Wear (built).** Each part has a mileage life: wings 1,500 km, floor 1,800, sidepods and suspension 2,000, power unit 2,500. That is about 8 to 13 weeks of an active player's driving. Starter parts never wear out.
+  - **What counts:** the distance of every verified qualifying run (the re-drive reports it) and every finished race goes on the fitted parts. Practice is not verified, so it does not count.
+  - **Fade:** over the last 30% of its life a part's stats fade linearly to 60% of full strength (rounded toward the faster side, so it is never worse than the standard part). The car spec the physics drives with includes it; the garage shows "WORN: n% effect".
+  - **Retirement:** at its life a part is retired: unfitted (the starter part goes back on) and kept in the garage, greyed. It can only be scrapped.
+- **Scrapping (built).** Scrapping a part that is not fitted gives R&D credits: 10, 25, 60 or 150 by rarity, kept on the player (`credits`).
 - **Repairs.** Credits buy repairs that restore up to 30% of a part's life, at most twice.
 
 Credits are earned only by racing and scrapping, never bought. The model below assumes 8% of circulating parts leave each week.
@@ -159,7 +162,7 @@ Credits are earned only by racing and scrapping, never bought. The model below a
 **Different, not better (enforced by tests).**
 
 - **The budget:** every part spends the same lap-time budget: 50 points, where 1 point is 0.001% of lap time, plus at most 5% for rarity.
-- **Measured weights:** the weights come from a lap model of `car_sim.gd` on Mtkvari. 1% grip is worth 0.46% of lap time, 1% downforce 0.15%, 1% traction 0.10%, 1% drag 0.05%, 1 kW 0.018% and 1% recovery 0.008%.
+- **Measured weights:** the weights come from a lap model of `car_sim.gd` on Mtkvari. 1% grip is worth 0.46% of lap time, 1% downforce 0.15%, 1% traction 0.10%, 1% drag 0.05%, 1 kW 0.018% and 1% recovery 0.008%. 1 kg of weight costs 0.034%: 1 kg is 0.125% of the car's mass, about 0.9 kW on the straights plus 1.25 per mille of downforce in corners and under braking.
 - **The 2% bound:** tests check that the best and worst possible cars differ by at most 2% on every track type (1.87% on speed tracks, 1.51% on street circuits, 0.86% on Mtkvari). They also check that no car can reach the physics clamps.
 
 ## 5. Risks

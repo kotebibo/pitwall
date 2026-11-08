@@ -336,3 +336,149 @@ test("a race finish earns a pack and goes on the fitted parts' records", () => {
   assert.equal(fitted.km, 40);
   assert.ok(fitted.display.wear > 0 && fitted.display.wear < 1);
 });
+
+test("car spec sums the parts' weight in kg", () => {
+  const fw = part("front_wing", "outwash", { downforce: 10, weight: 3 });
+  const pu = part("power_unit", "efficiency", { harvest: 30, weight: 6 });
+  const pod = part("sidepods", "zeropod", { drag: -10, weight: -4 });
+  assert.equal(P.carDetail([fw, pu, pod]).spec.weight, 5);
+  // parts rolled before weight existed count as 0 kg
+  const old = { ...fw, stats: { downforce: 10 } as Spec };
+  assert.equal(P.carDetail([old]).spec.weight, 0);
+});
+
+test("wear: full effect to 70% of a part's life, then down to 60% at the end; starters never wear", () => {
+  const life = catalog.areas.front_wing.lifeKm;
+  const effect = (km: number, rarity = "common") => P.wearEffect({ area: "front_wing", rarity, km });
+  assert.equal(effect(0), 1000);
+  assert.equal(effect(life * 0.7), 1000);
+  assert.equal(effect(life * 0.85), 800);
+  assert.equal(effect(life), 600);
+  assert.equal(effect(life * 3), 600);
+  assert.equal(effect(life * 3, "starter"), 1000);
+  // a worn part gives less of every stat and never ends up worse than the standard part
+  let checked = 0;
+  for (let i = 0; i < 400; i++) {
+    for (const p of P.rollPack(`wear-${i}`, SECRET)) {
+      const full = P.goodness(p.stats);
+      const lifeKm = catalog.areas[p.area].lifeKm;
+      for (const f of [0.8, 0.9, 1]) {
+        const e = P.wearEffect({ ...p, km: lifeKm * f });
+        const worn = P.carDetail([{ ...p, km: lifeKm * f }]).spec;
+        for (const k of SPEC_KEYS) {
+          assert.ok(Math.abs(worn[k]) <= Math.abs(p.stats[k]), `${p.concept}.${k} grew with wear`);
+          assert.ok(Math.abs(worn[k] - (p.stats[k] * e) / 1000) < 1, `${p.concept}.${k} ${worn[k]} vs ${p.stats[k]} x ${e}`);
+        }
+        if (full > 0) {
+          assert.ok(P.goodness(worn) >= (full * e) / 1000 - 1e-9, `${p.concept} worn ${P.goodness(worn)} vs ${full} x ${e}`);
+          assert.ok(P.goodness(worn) >= 0);
+        }
+        checked++;
+      }
+    }
+  }
+  assert.equal(checked, 3600);
+});
+
+test("verified driving wears the fitted parts, and the car spec fades with them", () => {
+  P.clock.now = () => at(BASE_WEEK + 50);
+  const player = newPlayer();
+  P.awardPack(player, "first_quali", "1");
+  const [p] = P.openPack(player).parts;
+  P.equip(player, p.id);
+  const starters = P.garage(player).inventory.filter((x) => x.rarity === "starter");
+  // km to a tenth, starters unchanged
+  P.addDistance(player, 3.2449);
+  let g = P.garage(player);
+  assert.equal(g.inventory.find((x) => x.id === p.id)!.km, 3.2);
+  for (const s of starters) assert.equal(g.inventory.find((x) => x.id === s.id)!.km, 0);
+  P.addDistance(player, 3.2449);
+  assert.equal(P.garage(player).inventory.find((x) => x.id === p.id)!.km, 6.4);
+  // only the named parts (an attempt's), and only if still in the garage
+  P.addDistance(player, 100, [starters[0].id, "ffffffffffffffff"]);
+  assert.equal(P.garage(player).inventory.find((x) => x.id === p.id)!.km, 6.4);
+  // 85% of its life: 80% effect, in the garage view and the physics spec
+  const life = catalog.areas[p.area].lifeKm;
+  P.addDistance(player, life * 0.85 - 6.4, [p.id]);
+  g = P.garage(player);
+  const worn = g.inventory.find((x) => x.id === p.id)!;
+  assert.equal(worn.display.effect, 800);
+  assert.equal(worn.display.kmLeft, Math.round(life * 0.15 * 10) / 10);
+  assert.equal(worn.display.retired, false);
+  assert.deepEqual(P.carSpec(player), P.carDetail([{ ...p, km: worn.km }]).spec);
+  assert.deepEqual(g.car, P.carSpec(player));
+  for (const k of SPEC_KEYS) assert.ok(Math.abs(g.car[k] - p.stats[k] * 0.8) < 1, k);
+});
+
+test("a part at the end of its life is retired: unfitted, starter back, kept in the garage", () => {
+  P.clock.now = () => at(BASE_WEEK + 51);
+  const player = newPlayer();
+  P.awardPack(player, "first_quali", "1");
+  const [p, q] = P.openPack(player).parts;
+  P.equip(player, p.id);
+  const starter = P.garage(player).inventory.find((x) => x.area === p.area && x.rarity === "starter")!;
+  const life = catalog.areas[p.area].lifeKm;
+  assert.deepEqual(P.addDistance(player, life - 1).retired, []);
+  assert.deepEqual(P.addDistance(player, 1).retired, [p.id]);
+  const g = P.garage(player);
+  assert.equal(g.equipped[p.area], starter.id);
+  const r = g.inventory.find((x) => x.id === p.id)!;
+  assert.equal(r.retired, true);
+  assert.equal(r.retiredAt, at(BASE_WEEK + 51));
+  assert.equal(r.equipped, false);
+  assert.equal(r.display.retired, true);
+  assert.equal(r.display.effect, 600);
+  assert.equal(r.display.kmLeft, 0);
+  assert.equal(g.inventory[g.inventory.length - 1].id, p.id, "retired parts sort last");
+  assert.deepEqual(g.car, P.zeroSpec());
+  assert.throws(() => P.equip(player, p.id), (e: InstanceType<typeof P.PartsError>) => e.status === 400 && /worn out/.test(e.message));
+  // a retired part wears no further
+  P.equip(player, q.id);
+  P.addDistance(player, 50, [p.id, q.id]);
+  assert.equal(P.garage(player).inventory.find((x) => x.id === p.id)!.km, life);
+  assert.equal(P.garage(player).inventory.find((x) => x.id === q.id)!.km, 50);
+});
+
+test("race finishes wear the fitted parts and retire them too", () => {
+  P.clock.now = () => at(BASE_WEEK + 52);
+  const player = newPlayer();
+  P.awardPack(player, "first_quali", "1");
+  const [p] = P.openPack(player).parts;
+  P.equip(player, p.id);
+  const life = catalog.areas[p.area].lifeKm;
+  P.addDistance(player, life - 10);
+  P.awardRaceFinish(player, 900, { km: 16, won: false });
+  const g = P.garage(player);
+  const r = g.inventory.find((x) => x.id === p.id)!;
+  assert.equal(r.races, 1);
+  assert.equal(r.km, life + 6);
+  assert.equal(r.retired, true);
+  assert.notEqual(g.equipped[p.area], p.id);
+  // the next race does not count on the retired part
+  P.awardRaceFinish(player, 901, { km: 16, won: true });
+  assert.equal(P.garage(player).inventory.find((x) => x.id === p.id)!.races, 1);
+});
+
+test("scrapping a part gives R&D credits by rarity; fitted and starter parts cannot be scrapped", () => {
+  assert.deepEqual(["common", "rare", "epic", "legendary"].map((r) => catalog.rarities[r].scrapCredits), [10, 25, 60, 150]);
+  P.clock.now = () => at(BASE_WEEK + 53);
+  const player = newPlayer();
+  P.awardPack(player, "first_quali", "1");
+  const parts = P.openPack(player).parts;
+  assert.equal(P.garage(player).credits, 0);
+  P.equip(player, parts[0].id);
+  assert.throws(() => P.scrapPart(player, parts[0].id), (e: InstanceType<typeof P.PartsError>) => e.status === 400 && /unfit it first/.test(e.message));
+  const starter = P.garage(player).inventory.find((x) => x.rarity === "starter")!;
+  assert.throws(() => P.scrapPart(player, starter.id), (e: InstanceType<typeof P.PartsError>) => e.status === 400);
+  assert.throws(() => P.scrapPart(player, "ffffffffffffffff"), (e: InstanceType<typeof P.PartsError>) => e.status === 404);
+  let total = 0;
+  for (const p of parts.slice(1)) {
+    const res = P.scrapPart(player, p.id);
+    total += catalog.rarities[p.rarity].scrapCredits;
+    assert.deepEqual(res.scrapped, { id: p.id, credits: catalog.rarities[p.rarity].scrapCredits });
+    assert.equal(res.credits, total);
+    assert.equal(res.inventory.find((x) => x.id === p.id), undefined);
+  }
+  assert.equal(P.garage(player).credits, total);
+  assert.equal(P.garage(player).inventory.length, P.AREAS.length + 1);
+});
