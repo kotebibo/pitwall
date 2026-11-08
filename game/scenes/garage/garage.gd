@@ -30,6 +30,7 @@ var _status: Label
 var _packs_page: Control
 var _parts_panel: Control
 var _livery: LiveryPanel
+var _tuning: TuningPanel
 
 
 func _ready() -> void:
@@ -107,7 +108,7 @@ func _top_bar() -> void:
 	row.add_child(title)
 	var tips := [
 		"Fit parts to the car. Every part changes how it drives and how it looks.",
-		"Set up the car: wing flap angles, brake bias and differential.",
+		"Set up the car for the track: wing flap angles, brake bias and differential, and see what each change does.",
 		"Development packs: three unique parts each, earned by driving.",
 		"Paint the car: pick its body and accent colours.",
 	]
@@ -131,6 +132,8 @@ func _show_tab(i: int) -> void:
 	for k in _pages.size():
 		_pages[k].visible = k == i
 		_tab_buttons[k].set_pressed_no_signal(k == i)
+	if i == 1 and _tuning:
+		_tuning.refresh()
 	if i == 2:
 		_refresh_packs()
 
@@ -524,6 +527,7 @@ func _tuning_page() -> Control:
 	var page := Control.new()
 	page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var t := TuningPanel.new()
+	_tuning = t
 	t.locked = Profile.setup_locked()
 	t.changed.connect(Profile.save)
 	page.add_child(t)
@@ -647,7 +651,7 @@ func _start_tour() -> void:
 			"text": "The sum of your fitted parts against a baseline car. No part is best everywhere: match the car to the track."},
 		{"target": func() -> Control: return _tab_buttons[1], "title": "TUNING",
 			"before": func() -> void: _show_tab(1),
-			"text": "Set the car like an engineer: wing flap angles in side view, brake bias and differential on steering-wheel dials."},
+			"text": "Set the car like an engineer: wing flap angles in side view, brake bias and differential on steering-wheel dials. The bars show what each change does on track."},
 		{"target": func() -> Control: return _tab_buttons[2], "title": "DEVELOPMENT PACKS",
 			"before": func() -> void: _show_tab(2),
 			"text": "Earned by driving: your first qualifying lap of the day, a top 3 time, every race you finish. Three unique parts each, from a capped weekly supply."},
@@ -668,4 +672,5 @@ func _refresh_all() -> void:
 	_refresh_slots()
 	_fill_list()
 	_refresh_spec()
+	_tuning.refresh()  # the fitted parts change what a setup does
 	_tab_buttons[2].text = "PACKS (%d)" % Catalog.unopened_packs() if Catalog.unopened_packs() > 0 else "PACKS"

@@ -11,6 +11,7 @@ const KEYS: Array[String] = ["top_speed", "cornering", "braking", "acceleration"
 const NAMES := {
 	"top_speed": "TOP SPEED", "cornering": "CORNERING", "braking": "BRAKING",
 	"acceleration": "ACCELERATION", "battery": "BATTERY", "weight": "WEIGHT",
+	"balance": "BALANCE",
 }
 const HELP := {
 	"top_speed": "Top speed: how fast the car goes at the end of a long straight with Boost. Less drag and more power raise it.",
@@ -19,7 +20,21 @@ const HELP := {
 	"acceleration": "Acceleration: seconds from 0 to 200 km/h with Boost. Power, traction and weight decide it. Lower is better.",
 	"battery": "Battery: energy won back for Boost from one heavy stop (300 to 100 km/h). The battery holds 4,000 kJ.",
 	"weight": "Weight: the car with its driver. Every kilo makes it accelerate, brake and turn a little worse.",
+	"balance": "Balance: the share of the downforce on the front wheels. More front: sharper turn-in, but the rear can slide. Less: a calm rear, but the car runs wide in corners.",
 }
+## The TUNING tab's bars: what a setup changes. BRAKING there is braking without locking a wheel, so brake bias moves it.
+const SETUP_KEYS: Array[String] = ["top_speed", "cornering", "braking", "acceleration", "balance"]
+const SETUP_HELP := {
+	"top_speed": "Top speed: how fast the car goes at the end of a long straight with Boost. Less wing means less drag and a higher top speed.",
+	"cornering": "Cornering: the fastest the car can take a medium corner (60 m radius) before the tyres slide. More wing pushes the tyres down harder.",
+	"braking": "Braking: metres to stop from 200 km/h, braking as hard as you can without locking a wheel. Brake bias and wing change it. Shorter is better.",
+	"acceleration": "Acceleration: seconds from 0 to 200 km/h with Boost. Drag and grip at the rear decide it. Lower is better.",
+	"balance": "Balance: the share of the downforce on the front wheels. More front: sharper turn-in, but the rear can slide. Less: a calm rear, but the car runs wide in corners. Not better or worse: it is how the car feels.",
+}
+## Bar scale for setups: a setup moves these numbers much more than a part does.
+const SETUP_SPAN := {"top_speed": 0.08, "cornering": 0.05, "braking": 0.12, "acceleration": 0.04, "balance": 0.25}
+## Neither better nor worse: drawn in yellow.
+const NEUTRAL := {"balance": true}
 const LOWER_IS_BETTER := {"braking": true, "acceleration": true, "weight": true}
 ## Bar scale: the standard car sits in the middle and the bar's ends are this
 ## share better or worse (parts move these numbers by a few percent at most).
@@ -68,6 +83,47 @@ static func metrics(c: Dictionary) -> Dictionary:
 	}
 
 
+## metrics() for the TUNING tab: braking without locking a wheel (brake bias counts), which axle locks first and the best bias.
+static func setup_metrics(c: Dictionary) -> Dictionary:
+	var m := metrics(c)
+	m["braking"] = braking_distance(c, 200.0 / 3.6, true)
+	m["locks_first"] = "front" if brake_limit(c, 120.0 / 3.6)[1] == 0 else "rear"
+	m["best_bias"] = best_bias(c)
+	return m
+
+
+## The hardest braking (N) at speed v before a wheel locks with this brake bias, and which axle
+## locks first (0 front, 1 rear). CarSim locks an axle once its share of the brake force passes
+## its grip, and weight moves forward as the car slows (more grip at the front).
+static func brake_limit(c: Dictionary, v: float) -> Array:
+	var m: float = c["mass"]
+	var g := CarSim.G / ONE
+	var mu: float = float(c["mu"]) * float(c["brake_grip"])
+	var down: float = float(c["k_down"]) * v * v
+	var fs: float = c["front_share"]
+	var bias: float = c["brake_front"]
+	var hl := float(CarSim.CG_HEIGHT) / CarSim.WHEELBASE
+	var static_f := m * g * float(CarSim.B_CG) / CarSim.WHEELBASE
+	var static_r := m * g - static_f
+	var front := mu * (static_f + down * fs) / maxf(bias - mu * hl, 0.01)
+	var rear := mu * (static_r + down * (1.0 - fs)) / maxf(1.0 - bias + mu * hl, 0.01)
+	return [minf(minf(front, rear), CarSim.F_BRAKE_MAX / ONE), 0 if front < rear else 1]
+
+
+## The brake bias (50..64) that stops this car from 200 km/h in the shortest distance without locking.
+static func best_bias(c: Dictionary) -> int:
+	var best := 57
+	var best_d := INF
+	var t := c.duplicate()
+	for b in range(50, 65):
+		t["brake_front"] = b / 100.0
+		var d := braking_distance(t, 200.0 / 3.6, true)
+		if d < best_d - 0.001:
+			best_d = d
+			best = b
+	return best
+
+
 ## Where drive power (combustion plus Boost) meets drag and rolling resistance, m/s.
 static func top_speed(c: Dictionary) -> float:
 	var power: float = float(c["p_ice"]) + CarSim.P_BOOST
@@ -102,15 +158,15 @@ static func _brake_force(c: Dictionary, v: float) -> float:
 	return minf(CarSim.F_BRAKE_MAX / ONE, grip)
 
 
-## Metres from v0 to a stop at the limit, tick by tick.
-static func braking_distance(c: Dictionary, v0: float) -> float:
+## Metres from v0 to a stop at the limit, tick by tick. `no_lock`: the limit is where the first wheel locks with this brake bias.
+static func braking_distance(c: Dictionary, v0: float, no_lock: bool = false) -> float:
 	var m: float = c["mass"]
 	var k: float = c["k_drag"]
 	var roll := CarSim.F_ROLL / ONE
 	var v := v0
 	var d := 0.0
 	for i in 2400:
-		var a := (_brake_force(c, v) + k * v * v + roll) / m
+		var a := ((float(brake_limit(c, v)[0]) if no_lock else _brake_force(c, v)) + k * v * v + roll) / m
 		var nv := v - a * DT
 		if nv <= 0.0:
 			d += v * v / (2.0 * a)  # the last part of a tick

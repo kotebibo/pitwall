@@ -12,6 +12,13 @@ var base_spec: Dictionary = {}
 var part_spec: Dictionary = {}
 var title := ""
 var caption := ""
+## The two setups (empty: Profile.setup for both), for a setup test from the TUNING tab
+var base_setup: Dictionary = {}
+var part_setup: Dictionary = {}
+## How the two cars are named on screen
+var base_name := "your car now"
+var part_name := "with the part"
+var change_name := "the part"
 
 var _runs: Array[TestDriveRun] = []
 var _run := 0
@@ -65,9 +72,10 @@ func _ready() -> void:
 	close.size_flags_horizontal = Control.SIZE_SHRINK_END
 	close.pressed.connect(func() -> void: closed.emit())
 	v.add_child(close)
-	var setup: Dictionary = Profile.setup
 	var stats := Profile.stats()
-	_runs = [TestDriveRun.new(setup, stats, base_spec), TestDriveRun.new(setup, stats, part_spec)]
+	var a: Dictionary = base_setup if not base_setup.is_empty() else Profile.setup
+	var b: Dictionary = part_setup if not part_setup.is_empty() else Profile.setup
+	_runs = [TestDriveRun.new(a, stats, base_spec), TestDriveRun.new(b, stats, part_spec)]
 
 
 func _process(_delta: float) -> void:
@@ -76,7 +84,7 @@ func _process(_delta: float) -> void:
 	# a few milliseconds of driving a frame keeps the screen moving, on the web too
 	var p := _runs[_run].step(8000)
 	_bar.value = (_run + p) * 500.0
-	_status.text = "Autopilot lap %d of 2: %s" % [_run + 1, "your car now" if _run == 0 else "with the part"]
+	_status.text = "Autopilot lap %d of 2: %s" % [_run + 1, base_name if _run == 0 else part_name]
 	if _runs[_run].done():
 		_run += 1
 		if _run == _runs.size():
@@ -101,7 +109,8 @@ func _show() -> void:
 	_status.text = "Autopilot laps with your setup. Your own laps may gain more, or less."
 	var big := Ui.label("%+.3f s a lap" % d, Ui.SIZE_HEADING, good if absf(d) >= 0.0005 else Ui.INK_2, true)
 	_results.add_child(big)
-	_results.add_child(Ui.label("%s now  >  %s with the part" % [_fmt(int(a["us"])), _fmt(int(b["us"]))], Ui.SIZE_SMALL, Ui.INK_2))
+	var short_a := "now" if base_name == "your car now" else base_name
+	_results.add_child(Ui.label("%s %s  >  %s %s" % [_fmt(int(a["us"])), short_a, _fmt(int(b["us"])), part_name], Ui.SIZE_SMALL, Ui.INK_2))
 	var sa: Array = a.get("sectors", [])
 	var sb: Array = b.get("sectors", [])
 	var srow := Ui.hbox(12)
@@ -110,7 +119,7 @@ func _show() -> void:
 		var l := Ui.label("S%d %+.3f" % [i + 1, ds], Ui.SIZE_SMALL, (Catalog.GREEN if ds < 0.0 else Ui.RED) if absf(ds) >= 0.0005 else Ui.INK_2, true)
 		srow.add_child(l)
 	_results.add_child(srow)
-	var legend := Ui.label("On the map: green where the part gains time, red where it loses it.", Ui.SIZE_SMALL, Ui.INK_3)
+	var legend := Ui.label("On the map: green where %s gains time, red where it loses it." % change_name, Ui.SIZE_SMALL, Ui.INK_3)
 	legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	legend.custom_minimum_size = Vector2(200, 0)
 	_results.add_child(legend)
