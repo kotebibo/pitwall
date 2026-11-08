@@ -11,7 +11,7 @@ const AREA_NAMES := {
 const STAT_ORDER: Array[String] = ["downforce", "drag", "power", "grip", "traction", "harvest", "balance"]
 const STAT_NAMES := {
 	"downforce": "DOWNFORCE", "drag": "DRAG", "balance": "BALANCE", "power": "POWER",
-	"harvest": "ENERGY", "grip": "GRIP", "traction": "TRACTION",
+	"harvest": "ENERGY", "grip": "GRIP", "traction": "TRACTION", "weight": "WEIGHT",
 }
 const GREEN := Color("3ecf6a")
 const AREA_HELP := {
@@ -30,6 +30,7 @@ const STAT_HELP := {
 	"traction": "Traction: power down out of slow corners without wheelspin.",
 	"harvest": "Energy: battery recovered under braking. More Boost each lap.",
 	"balance": "Aero balance: share of downforce on the front. Front = sharper, rear = stabler.",
+	"weight": "Weight: kilograms against the standard part. Lighter accelerates, brakes and turns better (green when lighter).",
 }
 
 var data: Dictionary = {}
@@ -95,6 +96,8 @@ func stat_lines(part: Dictionary, count: int) -> Array:
 func format_stat(key: String, v: int) -> String:
 	if key == "power":
 		return "%+d kW" % v
+	if key == "weight":
+		return "%+d kg" % v
 	return "%+.1f%%" % (v / 10.0)
 
 
@@ -102,7 +105,7 @@ func format_stat(key: String, v: int) -> String:
 func stat_color(key: String, v: int) -> Color:
 	if key == "balance":
 		return Ui.INK_2
-	var good := v < 0 if key == "drag" else v > 0
+	var good := v < 0 if key in ["drag", "weight"] else v > 0
 	return GREEN if good else Ui.RED
 
 

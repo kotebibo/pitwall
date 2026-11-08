@@ -158,10 +158,29 @@ func _flip(_p: Dictionary, card: PartCard) -> void:
 	t2.tween_property(card, "scale:x", 1.0, 0.16)
 	t2.tween_property(card, "scale", Vector2(1.08, 1.08), 0.08)
 	t2.tween_property(card, "scale", Vector2.ONE, 0.1)
+	_say(card)
 	_flipped += 1
 	if _flipped == _cards.size():
 		_title.text = "NEW PARTS"
 		_done_button.visible = true
+
+
+## Under the card, in plain words: what this part would do to your car.
+func _say(card: PartCard) -> void:
+	var text := PerfPanel.one_liner(card.part)
+	if text == "":
+		return
+	var l := Ui.label(text, Ui.SIZE_SMALL, Ui.INK_2)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_constant_override("line_spacing", -3)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.position = card.position + Vector2(-6, PartCard.SIZE.y + 6)
+	l.size = Vector2(PartCard.SIZE.x + 12, 0)
+	l.custom_minimum_size = Vector2(PartCard.SIZE.x + 12, 0)
+	l.modulate.a = 0.0
+	add_child(l)
+	create_tween().tween_property(l, "modulate:a", 1.0, 0.3).set_delay(0.15)
 
 
 func _unhandled_input(event: InputEvent) -> void:
