@@ -53,6 +53,12 @@ func _ready() -> void:
 	if "--passes" in args:
 		_show_passes()
 		return
+	if "--settings" in args and OS.is_debug_build():
+		# testing: the settings screen over the hub (--tab 1: sound, 2: game)
+		_show_hub()
+		var tab := int(args[args.find("--tab") + 1]) if args.find("--tab") >= 0 and args.find("--tab") + 1 < args.size() else 0
+		(_screen as HubScreen).open_settings.call_deferred(tab)
+		return
 	if "--passdrive" in args:
 		_show_pass_drive()
 		return

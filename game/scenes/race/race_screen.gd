@@ -44,8 +44,12 @@ var _overlay: Control
 var _pit_timer := 0.0
 var _crew: Node2D
 var _last_pos := 0
-var _esc_at := -10.0
 var _ui: Control
+## Paused: the race sim stops stepping (it runs on ticks, so nothing is lost).
+var _paused := false
+var _pause_menu: Control
+var _pause_keys: Label
+var _settings: SettingsScreen
 var _ambience: AudioStreamPlayer  # grid and crowd loops
 var _limiter: AudioStreamPlayer  # pit-limiter engine stutter
 var _limiter_on := false
@@ -175,6 +179,7 @@ func _choose_tyre() -> void:
 	rules.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rules.custom_minimum_size = Vector2(306, 0)
 	v.add_child(rules)
+	v.add_child(Ui.label("IN THE RACE: " + _tyre_keys_line() + "  ·  %s PAUSES" % Settings.key_text("drive_pause"), Ui.SIZE_SMALL, Ui.INK_3))
 	v.add_child(Ui.label("STARTING TYRE", Ui.SIZE_SMALL, Ui.INK_2, true))
 	var row := Ui.hbox(5)
 	v.add_child(row)
@@ -274,22 +279,111 @@ func _offline_race() -> Dictionary:
 # ---- simulation ----
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and (event as InputEventKey).pressed:
-		match (event as InputEventKey).physical_keycode:
-			KEY_1: _next_tyre = 0
-			KEY_2: _next_tyre = 1
-			KEY_3: _next_tyre = 2
-			KEY_ESCAPE:
-				var now := Time.get_ticks_msec() / 1000.0
-				if now - _esc_at < 2.0 or _state in ["choose", "results"]:
-					exited.emit()
-				else:
-					_esc_at = now
-					_hud.flash("PRESS ESC AGAIN TO RETIRE", Ui.YELLOW, 2.0)
+	# ESC always pauses as well: it can never be bound to anything else
+	var key := event as InputEventKey
+	var esc := key != null and key.pressed and not key.echo and key.physical_keycode == KEY_ESCAPE
+	if event.is_action_pressed("drive_pause") or esc:
+		if _state in ["choose", "results"]:
+			if esc:
+				exited.emit()  # nothing to pause yet, or any more: ESC leaves
+		else:
+			_set_paused(not _paused)
+		return
+	if _paused:
+		return
+	if event.is_action_pressed("race_tyre_soft"):
+		_next_tyre = 0
+	elif event.is_action_pressed("race_tyre_medium"):
+		_next_tyre = 1
+	elif event.is_action_pressed("race_tyre_hard"):
+		_next_tyre = 2
+
+
+func _debug_settings() -> void:
+	await get_tree().create_timer(1.5).timeout
+	if not is_inside_tree():
+		return
+	_set_paused(true)
+	if not "--settings" in Api.args:
+		return  # just the pause menu
+	_open_settings()
+
+
+## "1 / 2 / 3 PICK THE NEXT TYRE", with the keys bound now.
+func _tyre_keys_line() -> String:
+	return "%s / %s / %s PICK THE NEXT TYRE" % [Settings.key_text("race_tyre_soft"), Settings.key_text("race_tyre_medium"), Settings.key_text("race_tyre_hard")]
+
+
+# ---- pause ----
+
+func _set_paused(on: bool) -> void:
+	if on == _paused:
+		return
+	_paused = on
+	if _pause_menu == null:
+		_pause_menu = _build_pause_menu()
+		_ui.add_child(_pause_menu)
+	_refresh_pause_text()
+	_pause_menu.visible = on
+	_audio.set_paused(on)
+	_ambience.stream_paused = on
+	_limiter.stream_paused = on
+
+
+func _build_pause_menu() -> Control:
+	var root := ColorRect.new()
+	root.color = Color(0.03, 0.035, 0.045, 0.78)
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var panel := _glass_panel()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.custom_minimum_size = Vector2(230, 0)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	root.add_child(panel)
+	var box := Ui.vbox(5)
+	panel.add_child(box)
+	box.add_child(Ui.label("PAUSED", Ui.SIZE_TITLE, Ui.INK, true))
+	box.add_child(Ui.label("RACE  ·  MTKVARI CIRCUIT  ·  THE FIELD WAITS FOR YOU", Ui.SIZE_SMALL, Ui.INK_2))
+	var resume := Ui.button("RESUME", true)
+	resume.custom_minimum_size = Vector2(0, 24)
+	resume.pressed.connect(_set_paused.bind(false))
+	box.add_child(resume)
+	var settings := Ui.button("SETTINGS: KEYS AND SOUND")
+	settings.pressed.connect(_open_settings)
+	box.add_child(settings)
+	var retire := Ui.button("RETIRE FROM THE RACE")
+	retire.pressed.connect(func() -> void:
+		if retire.text == "RETIRE FROM THE RACE":
+			retire.text = "CLICK AGAIN TO RETIRE: THE RACE WON'T COUNT"
+		else:
+			exited.emit())
+	box.add_child(retire)
+	_pause_keys = Ui.label("", Ui.SIZE_SMALL, Ui.INK_3)
+	box.add_child(_pause_keys)
+	return root
+
+
+func _refresh_pause_text() -> void:
+	if _pause_keys:
+		_pause_keys.text = Settings.controls_line() + "\n" + _tyre_keys_line() + "  ·  %s RESUMES" % Settings.keys_text("drive_pause")
+
+
+## Settings over the pause menu: the race stays paused underneath.
+func _open_settings() -> void:
+	if _settings != null:
+		return
+	_settings = SettingsScreen.new()
+	_pause_menu.visible = false
+	_ui.add_child(_settings)
+	await _settings.closed
+	_settings = null
+	_refresh_pause_text()
+	if _pause_menu:
+		_pause_menu.visible = _paused
 
 
 func _physics_process(_delta: float) -> void:
-	if _race == null or not (_state in ["lights", "racing", "pit", "cooldown", "results"]):
+	if _paused or _race == null or not (_state in ["lights", "racing", "pit", "cooldown", "results"]):
 		return
 	if _state == "results" and _race.finished():
 		return  # the field is home: the input log is complete
@@ -342,6 +436,8 @@ func _events() -> void:
 				Sfx.play("start_go")
 				_loop(_ambience, "crowd_loop", -6.0)
 				_hud.flash("LIGHTS OUT AND AWAY WE GO", Ui.INK, 2.0)
+				if OS.is_debug_build() and ("--settings" in Api.args or "--pause" in Api.args):
+					_debug_settings()  # testing: the pause menu (and settings) in a race
 			"pit_in":
 				if int(e["car"]) == 0:
 					_state = "pit"
@@ -381,6 +477,8 @@ func _events() -> void:
 
 func _finish_later() -> void:
 	await get_tree().create_timer(4.0).timeout
+	while is_inside_tree() and _paused:
+		await get_tree().process_frame
 	if is_inside_tree():
 		_results()
 
@@ -388,7 +486,7 @@ func _finish_later() -> void:
 # ---- drawing ----
 
 func _process(delta: float) -> void:
-	if _race == null:
+	if _race == null or _paused:
 		return
 	var f := Engine.get_physics_interpolation_fraction()
 	for i in _cars.size():

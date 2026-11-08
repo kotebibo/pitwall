@@ -135,10 +135,11 @@ func _draw() -> void:
 		_text(pr.position + Vector2(0, 13), pit_text, Ui.SIZE_SMALL, Ui.YELLOW, true, HORIZONTAL_ALIGNMENT_CENTER, pr.size.x)
 		var names := ["SOFT", "MEDIUM", "HARD"]
 		var cols := [Ui.RED, Ui.YELLOW, Ui.INK]
+		var tyre_keys := ["race_tyre_soft", "race_tyre_medium", "race_tyre_hard"]
 		for k in 3:
 			var x := pr.position.x + 40 + k * 76
 			var on := k == next_tyre
-			_text(Vector2(x, pr.position.y + 25), "%d %s" % [k + 1, names[k]], Ui.SIZE_SMALL, cols[k] if on else Ui.INK_3, on)
+			_text(Vector2(x, pr.position.y + 25), "%s %s" % [Settings.key_text(tyre_keys[k]), names[k]], Ui.SIZE_SMALL, cols[k] if on else Ui.INK_3, on)
 	# messages sit under the rookie test panel; the BRAKE warning right under them
 	var msg_y := h * (0.33 if tut_title != "" else 0.24)
 	if brake_warning and not waiting:
@@ -147,10 +148,14 @@ func _draw() -> void:
 		draw_rect(r, Ui.RED if blink else Ui.RED_DARK)
 		_text(r.position + Vector2(0, 15), "BRAKE", Ui.SIZE_HEADING, Ui.INK, true, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 	if waiting:
-		var r := Rect2(w / 2 - 130, h / 2 - 34, 260, 52)
+		var keys := "THROTTLE %s  ·  BRAKE %s  ·  BOOST %s  ·  %s RESTART  ·  %s PAUSE" % [
+			Settings.key_text("drive_throttle"), Settings.key_text("drive_brake"), Settings.key_text("drive_boost"),
+			Settings.key_text("drive_restart"), Settings.key_text("drive_pause")]
+		var kw := maxf(260.0, Ui.font.get_string_size(keys, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.SIZE_SMALL).x + 24.0)
+		var r := Rect2(w / 2 - kw / 2, h / 2 - 34, kw, 52)
 		_glass(r, Ui.RED)
 		_text(r.position + Vector2(0, 22), "PRESS THROTTLE TO START", Ui.SIZE_HEADING, Ui.INK, true, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
-		_text(r.position + Vector2(0, 38), "THROTTLE W  ·  BRAKE SPACE  ·  BOOST SHIFT  ·  R RESTART  ·  ESC PAUSE", Ui.SIZE_SMALL, Ui.INK_2, false, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+		_text(r.position + Vector2(0, 38), keys, Ui.SIZE_SMALL, Ui.INK_2, false, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 	elif message != "":
 		# slides in, holds, fades
 		var a := clampf(_message_left / 0.4, 0.0, 1.0)

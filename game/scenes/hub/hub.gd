@@ -18,6 +18,7 @@ var _closes: Label
 var _items := {}
 var _showcase: CarShowcase
 var _account_chip: Button
+var _settings: SettingsScreen
 
 
 func _refresh_account() -> void:
@@ -38,6 +39,33 @@ func _open_account() -> void:
 	Profile.save()
 	_refresh_account()
 	_load()
+
+
+## Settings as an overlay over the hub. `tab`: 0 controls, 1 sound, 2 game.
+func open_settings(tab: int = 0) -> void:
+	if _settings != null:
+		return
+	_settings = SettingsScreen.new()
+	_settings.tab = tab
+	add_child(_settings)
+	await _settings.closed
+	_settings = null
+	_refresh_key_tips()
+
+
+## Drive menu entries name the keys in their tooltips; keep them to the bindings.
+func _refresh_key_tips() -> void:
+	for k: String in ["tutorial", "practice", "qualifying", "race"]:
+		var b := _items.get(k) as Button
+		if b == null:
+			continue
+		if not b.has_meta("hint"):
+			b.set_meta("hint", b.tooltip_text)
+		var keys := Settings.controls_line().replace("  ·  ", "\n")
+		if k == "race":
+			keys += "\nNEXT TYRE %s / %s / %s" % [Settings.key_text("race_tyre_soft"), Settings.key_text("race_tyre_medium"), Settings.key_text("race_tyre_hard")]
+		keys += "\nPAUSE " + Settings.keys_text("drive_pause")
+		b.tooltip_text = String(b.get_meta("hint")) + "\n\n" + keys + "\nChange the keys in Settings."
 
 
 func _full_look() -> Dictionary:
@@ -128,6 +156,7 @@ func _build() -> void:
 		left.add_child(_items[k])
 	if not Profile.tutorial_done:
 		_tag("tutorial", "START HERE")
+	_refresh_key_tips()
 
 	# Right: one column from top to bottom (account, timesheet, driver, your car),
 	# so a long timesheet pushes the car down and shrinks it instead of overlapping it
@@ -145,6 +174,22 @@ func _build() -> void:
 	_account_chip.pressed.connect(_open_account)
 	right.add_child(_account_chip)
 	_refresh_account()
+	# Settings: a small button just left of the account chip, outside the column,
+	# so the column (and its audited layout) stays exactly as it was
+	var gear := Ui.button("")
+	gear.tooltip_text = "Settings: keys, sound and camera."
+	gear.icon = PartCard.texture("res://assets/sprites/ui/icon_settings.png")
+	if gear.icon == null:
+		gear.text = "SETTINGS"
+	gear.add_theme_constant_override("icon_max_width", 12)
+	gear.anchor_left = 1.0
+	gear.anchor_right = 1.0
+	gear.offset_right = -266
+	gear.offset_left = -288
+	gear.offset_top = 8
+	gear.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	gear.pressed.connect(open_settings)
+	add_child(gear)
 
 	# Footer
 	_status = Ui.label("", Ui.SIZE_SMALL, Ui.INK_3)

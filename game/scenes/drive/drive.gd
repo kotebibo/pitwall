@@ -49,6 +49,10 @@ var _skids: SkidMarks
 var _sparks: CPUParticles2D
 var _hud: DriveHud
 var _pause: Control
+var _pause_restart: Button
+var _pause_camera: Button
+var _pause_keys: Label
+var _settings: SettingsScreen
 var _state := "loading"
 var _attempt_id := ""
 var _prev := Vector3.ZERO  # x, y, heading of the last two ticks, for smooth drawing
@@ -76,12 +80,20 @@ func _ready() -> void:
 	DriveInput.ensure_actions()
 	RenderingServer.set_default_clear_color(Ui.BG)
 	_track = TrackData.load_id(track_id)
+	_north_up = Settings.north_up
 	if "--autopilot" in Api.args:
 		_autopilot = Autopilot.new(_track)
 	_build()
 	_start_attempt()
 	if rival_attempt != "":
 		_load_rival()
+	if OS.is_debug_build() and ("--settings" in Api.args or "--pause" in Api.args):
+		# testing: the pause menu, and the settings overlay over it
+		await get_tree().create_timer(1.0).timeout
+		if _state == "waiting" or _state == "driving":
+			_toggle_pause()
+			if "--settings" in Api.args:
+				_open_settings()
 
 
 ## Re-drives the rival's verified run with the same physics to get their exact path.
@@ -201,6 +213,7 @@ func _build() -> void:
 	_hud.title = "%s · %s" % [title, _track.name.to_upper()]
 	layer.add_child(_hud)
 	_hud.set_track(_render.points)
+	_hud.show_fps = Settings.show_fps
 	_pause = _build_pause()
 	_pause.theme = Ui.theme  # a CanvasLayer breaks theme inheritance
 	layer.add_child(_pause)
@@ -281,23 +294,50 @@ func _build_pause() -> Control:
 	resume.custom_minimum_size = Vector2(0, 24)
 	resume.pressed.connect(_toggle_pause)
 	box.add_child(resume)
-	var restart := Ui.button("RESTART RUN  (R)")
-	restart.pressed.connect(func() -> void:
+	_pause_restart = Ui.button("")
+	_pause_restart.pressed.connect(func() -> void:
 		_toggle_pause()
 		_start_attempt())
-	box.add_child(restart)
-	var cam := Ui.button("CAMERA: CHASE / NORTH UP  (C)")
-	cam.pressed.connect(func() -> void: _north_up = not _north_up)
-	box.add_child(cam)
+	box.add_child(_pause_restart)
+	_pause_camera = Ui.button("")
+	_pause_camera.pressed.connect(func() -> void: _north_up = not _north_up)
+	box.add_child(_pause_camera)
 	var mute := Ui.button("SOUND: ON / OFF")
 	mute.pressed.connect(func() -> void: Sfx.toggle_mute())
 	box.add_child(mute)
+	var settings := Ui.button("SETTINGS: KEYS AND SOUND")
+	settings.pressed.connect(_open_settings)
+	box.add_child(settings)
 	var leave := Ui.button("EXIT TO WEEKEND")
 	leave.pressed.connect(func() -> void: exited.emit())
 	box.add_child(leave)
-	var keys := Ui.label("STEER A/D  ·  THROTTLE W  ·  BRAKE SPACE or S  ·  BOOST SHIFT  ·  REVERSE X\nGAMEPAD: STICK, RT, LT, A BOOST, B REVERSE  ·  F3 FPS", Ui.SIZE_SMALL, Ui.INK_3)
-	box.add_child(keys)
+	_pause_keys = Ui.label("", Ui.SIZE_SMALL, Ui.INK_3)
+	box.add_child(_pause_keys)
+	_refresh_pause_text()
 	return root
+
+
+## Key names in the pause menu come from the current bindings.
+func _refresh_pause_text() -> void:
+	_pause_restart.text = "RESTART RUN  (%s)" % Settings.keys_text("drive_restart")
+	_pause_camera.text = "CAMERA: CHASE / NORTH UP  (%s)" % Settings.keys_text("drive_camera")
+	_pause_keys.text = Settings.controls_line() + "\nGAMEPAD: STICK, RT, LT, A BOOST, B REVERSE  ·  F3 FPS"
+
+
+## Settings over the pause menu: the run stays paused underneath.
+func _open_settings() -> void:
+	if _settings != null:
+		return
+	_settings = SettingsScreen.new()
+	_pause.visible = false
+	_pause.get_parent().add_child(_settings)
+	await _settings.closed
+	_settings = null
+	_refresh_pause_text()
+	_hud.show_fps = Settings.show_fps
+	if _rookie and _rookie.step >= 0 and _rookie.step < RookieTest.STEPS.size():
+		_hud.tut_text = _rookie.text()
+	_pause.visible = _state.begins_with("paused_")
 
 
 func _start_attempt() -> void:
@@ -364,15 +404,19 @@ func _state_vec() -> Vector3:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("drive_pause"):
+	# ESC always pauses as well: it can never be bound to anything else
+	var key := event as InputEventKey
+	var esc := key != null and key.pressed and not key.echo and key.physical_keycode == KEY_ESCAPE
+	if event.is_action_pressed("drive_pause") or esc:
 		_toggle_pause()
 	elif event.is_action_pressed("drive_restart") and _state != "loading":
 		_pause.visible = false
 		_start_attempt()
-	elif event is InputEventKey and (event as InputEventKey).pressed and (event as InputEventKey).physical_keycode == KEY_C:
+	elif event.is_action_pressed("drive_camera"):
 		_north_up = not _north_up
 	elif event is InputEventKey and (event as InputEventKey).pressed and (event as InputEventKey).physical_keycode == KEY_F3:
-		_hud.show_fps = not _hud.show_fps
+		Settings.set_show_fps(not _hud.show_fps)
+		_hud.show_fps = Settings.show_fps
 
 
 func _toggle_pause() -> void:
@@ -575,7 +619,7 @@ func _tips(car: CarSim, v: float) -> void:
 		"line": "THE LINE READS YOUR SPEED: RED = BRAKE BY HERE, YELLOW = LIFT",
 		"brake": "BRAKE NOW · BOARDS COUNT DOWN 150 · 100 · 50 M",
 		"sm": "STRAIGHT MODE: WINGS OPEN ON THE BLUE STRAIGHTS",
-		"boost": "HOLD SHIFT (A) FOR BOOST: +350 KW FROM THE BATTERY",
+		"boost": "HOLD %s (OR %s) FOR BOOST: +350 KW FROM THE BATTERY" % [Settings.keys_text("drive_boost"), Settings.pad_text("drive_boost")],
 		"limits": "FOUR WHEELS PAST THE WHITE LINE DELETES THE LAP",
 		"traction": "REAR STEPPING OUT: EASE THE THROTTLE",
 	}[tip]
