@@ -43,12 +43,13 @@ func _ready() -> void:
 	_cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cursor.draw.connect(_draw_cursor)
 	add_child(_cursor)
-	_cursor.visible = shot in ["hub", "garage", "tuning"]
+	_cursor.visible = shot in ["hub", "garage", "tuning", "passes"]
 	_set_pos(_pos)
 	match shot:
 		"hub": _hub()
 		"garage": _garage()
 		"tuning": _tuning()
+		"passes": _passes()
 
 
 # ---- cursor and events ----
@@ -259,6 +260,31 @@ func _garage() -> void:
 			await click()
 			await wait(2.2)
 	await _tune()
+
+
+## Race passes: the pools, your pool's standings, a pool that has paid out.
+func _passes() -> void:
+	await wait(1.4)
+	var screen := find_class("RacePassScreen")
+	if screen == null:
+		return
+	var grid: Node = screen.get("_grid")
+	var cards: Array = grid.get_children() if grid else []
+	for i in [0, 2, 3, 5]:
+		if i < cards.size():
+			await move(cards[i], 0.4)
+			await wait(0.35)
+	if cards.size() > 1:
+		await move(cards[1], 0.4)
+		await click()
+		await wait(3.0)
+	cards = grid.get_children()  # the screen rebuilds its cards after a click
+	if cards.size() > 6:
+		await move(cards[6], 0.5)
+		await click()
+		await wait(1.2)
+		await move("VIEW PAYOUT", 0.6)
+		await wait(2.0)
 
 
 ## Tuning on its own (needs a team that has not qualified yet: parc ferme).

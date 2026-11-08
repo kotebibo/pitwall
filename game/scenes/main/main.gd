@@ -51,6 +51,9 @@ func _ready() -> void:
 	if "--passes" in args:
 		_show_passes()
 		return
+	if "--passdrive" in args:
+		_show_pass_drive()
+		return
 	if "--results" in args:
 		var rr: Variant = await Api.get_json("/api/races/" + args[args.find("--results") + 1])
 		if rr is Dictionary:
@@ -155,7 +158,7 @@ func _new_attempt(kind: SessionSim.Kind, session: String = "") -> Variant:
 		var you: Dictionary = Profile.event.get("you", {})
 		you["setupLocked"] = true
 		Profile.event["you"] = you
-	return {"attempt": r.get("attempt", ""), "seed": seed, "car": r.get("car", {})}
+	return {"attempt": r.get("attempt", ""), "seed": seed, "car": r.get("car", {}), "stats": r.get("stats", {}), "setup": r.get("setup", {})}
 
 
 func _show_race() -> void:

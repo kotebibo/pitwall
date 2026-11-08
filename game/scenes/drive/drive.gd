@@ -307,6 +307,11 @@ func _start_attempt() -> void:
 			# the server re-drives with this exact car, so drive with it too
 			if (res as Dictionary).get("car") is Dictionary:
 				car_spec = res["car"]
+			# and with the same driver stats and setup
+			if (res as Dictionary).get("stats") is Dictionary:
+				stats = res["stats"]
+			if (res as Dictionary).get("setup") is Dictionary:
+				setup = res["setup"]
 		else:
 			_hud.flash("SERVER UNAVAILABLE: OFFLINE RUN", Ui.YELLOW, 4.0)
 	if seed.is_empty():
