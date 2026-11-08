@@ -23,18 +23,19 @@ const SIZE_TITLE := 32
 
 var theme: Theme
 var font: FontFile
-var font_bold: FontVariation
+var font_bold: FontFile
 var _toasts: VBoxContainer
 
 
 func _ready() -> void:
-	font = load("res://assets/fonts/PixelifySans.ttf") as FontFile
+	# Pixelify Sans with a clearer B and 5 (players read them as G and S);
+	# made by tools/fonts/patch_pixelify.py.
+	font = load("res://assets/fonts/PitWallPixel-Regular.ttf") as FontFile
+	font_bold = load("res://assets/fonts/PitWallPixel-Bold.ttf") as FontFile
 	# Text renders at full screen resolution (canvas_items stretch), so normal
 	# antialiasing keeps it crisp; sprites still use nearest filtering.
-	font.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
-	font_bold = FontVariation.new()
-	font_bold.base_font = font
-	font_bold.variation_opentype = {"wght": 700}
+	for f: FontFile in [font, font_bold]:
+		f.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
 	theme = _build_theme()
 
 
