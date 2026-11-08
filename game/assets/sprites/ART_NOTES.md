@@ -149,3 +149,20 @@ Import settings: Filter = Nearest, Mipmaps off, lossless. All PNGs are RGBA.
 - `cards.py`: frames, back, glows, window backdrops, layout.json.
 - `packs.py`: pack frames, burst, sparkle.
 - `sheet.py`: preview_all.png.
+- `ranked.py`: ranked tier emblems, 32 px badges, medals, medal packs, PROMOTED banner, ranked/preview_ranked.png.
+
+## Ranked (tier emblems, medals, medal packs)
+
+```
+python tools/art/ranked.py   # ranked/*.png + ranked/preview_ranked.png (also run by build_all.py)
+```
+
+Contact sheet: `ranked/preview_ranked.png` (3x on #141518, with a 1x strip at the bottom). `ranked.py` reuses `packs.py` (`make_pouch`, `tear_open`, `skew`) by swapping its foil ramp, so the medal packs stay pixel-identical in layout to `packs/pack_closed.png`.
+
+- `ranked/emblem_<tier>.png` (64x64, transparent), tiers `iron bronze silver gold platinum emerald diamond master grandmaster challenger`, plus `emblem_unranked.png` (grey outline crest with "?", for placements). One family, more layers per tier: Iron is a plain chipped shield; Bronze adds the tyre ring (sidewall stripe in the tier colour); Silver adds a centre peak and a chequered band; Gold adds the helmet-visor crest and a laurel; Platinum adds wings; Emerald swaps the helmet for a cut crystal on the peak and adds gems; Diamond adds a 4th feather and a faceted rim; Master swaps the crystal for a crown; Grandmaster and Challenger get gold trim (crown, laurel; Challenger wings too), Challenger has a white-gold rim and a blue enamel field.
+- **Division numeral:** the shield's centre is a plain recessed enamel field (the tier's dark tone) kept free for the UI. Safe box at 1x: x 22..41, y 24..40 (`Rect2(22, 24, 20, 17)`), optical centre (32, 32). Ink #f1efea with a 1 px #08090b drop shadow reads on every tier (see the mock row on the sheet). For a numeral *under* the emblem, the lowest opaque row is 62 (Challenger's laurel); draw it just below the 64 px box. The unranked crest's inner field is #1d1f23 at alpha 200 (smoked glass).
+- `ranked/badge_<tier>.png` (32x32): the same emblems reduced 2:1 by block majority (keeps outlines and gems that a nearest 0.5 scale drops). Use these for 32 px badges instead of scaling the 64 px art by 0.5. They are too small for a numeral inside; put it beside or under.
+- `ranked/medal_<bronze|silver|gold>.png` (24x24): disc medal with an engraved star on a brand-red ribbon with a chequered centre stripe.
+- `ranked/pack_closed_<medal>.png`, `pack_shake_1_<medal>.png`, `pack_shake_2_<medal>.png`, `pack_open_<medal>.png` (96x112, same frames and anchors as `packs/`): the pouch in bronze/silver/gold foil, the DEV/PACK plate replaced by a medal plus "<MEDAL> PACK".
+- `ranked/rank_up.png` (128x32): "PROMOTED" ribbon banner (brand red, chequered edges, folded tails) for the result screen.
+- Ramps come from `tramp()` in `ranked.py`: six steps from each contract colour, shadows hue-shifted toward blue-violet, lights toward warm yellow.
