@@ -689,9 +689,9 @@ func _results() -> void:
 			var r: Dictionary = res
 			# JSON numbers arrive as floats, and Array.find(0) never matches 0.0
 			var server_pos := 0
-			var order: Array = r.get("order", [])
-			for k in order.size():
-				if int(order[k]) == 0:
+			var server_order: Array = r.get("order", [])
+			for k in server_order.size():
+				if int(server_order[k]) == 0:
 					server_pos = k + 1
 			status.text = "VERIFIED: the server re-drove your race and got P%d. Settled on Solana%s." % [server_pos, ", development pack earned" if not (r.get("packsEarned", []) as Array).is_empty() else ""]
 			status.add_theme_color_override("font_color", Color("3ecf6a"))
