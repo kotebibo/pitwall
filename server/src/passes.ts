@@ -2,8 +2,9 @@
 // an on-chain pool; when the event closes, the program pays out by placing and keeps Pit Wall's
 // share (it refuses to close the pool unless players got exactly the rest).
 //
-// Ranking: each entrant's best verified "pass" lap driven inside the pool's window, after they
-// entered. Pass laps use the standard car for everyone, so packs and parts cannot buy a result.
+// Ranking: each entrant's best verified pass lap driven inside the pool's window, after they
+// entered. Two classes: SPEC pools are driven in the standard car (only driving counts), OPEN
+// pools in your own car, with your parts and setup.
 // On devnet the stakes are devnet SOL, standing in for USDC.
 
 import { createHash } from "node:crypto";
@@ -26,6 +27,8 @@ export const MIN_ENTRANTS = 4; // fewer entrants: everyone is refunded
 const CURVE = 1.1;
 
 type Kind = "daily" | "weekly" | "sprint";
+export type PassClass = "spec" | "open";
+export const CLASSES: PassClass[] = ["spec", "open"];
 const TIERS: Record<"daily" | "weekly", { name: string; sol: number }[]> = {
   daily: [
     { name: "BRONZE", sol: 0.01 },
@@ -53,6 +56,8 @@ interface Pool {
   id: number;
   kind: Kind;
   tier: number;
+  /** spec: everyone in the standard car; open: your own parts and setup (missing = spec). */
+  cls?: PassClass;
   name: string;
   stakeLamports: number;
   opensAt: number;
@@ -125,15 +130,17 @@ function currentPools(now = Date.now()): Pool[] {
   const day = Math.floor(now / DAY_MS);
   const week = weekOf(now);
   const out: Pool[] = [];
-  for (const kind of ["daily", "weekly"] as const) {
-    TIERS[kind].forEach((t, tier) => {
-      const window = kind === "daily" ? day : week;
-      const id = poolId(kind, window, tier);
-      const opensAt = kind === "daily" ? day * DAY_MS : weekStartMs(week);
-      const closesAt = kind === "daily" ? (day + 1) * DAY_MS : weekStartMs(week + 1);
-      state.pools[id] ??= { id, kind, tier, name: `${kind.toUpperCase()} ${t.name}`, stakeLamports: Math.round(t.sol * LAMPORTS_PER_SOL), opensAt, closesAt, entrants: [] };
-      out.push(state.pools[id]);
-    });
+  for (const cls of CLASSES) {
+    for (const kind of ["daily", "weekly"] as const) {
+      TIERS[kind].forEach((t, tier) => {
+        const window = kind === "daily" ? day : week;
+        const id = poolId(kind, window, tier + (cls === "open" ? 3 : 0));
+        const opensAt = kind === "daily" ? day * DAY_MS : weekStartMs(week);
+        const closesAt = kind === "daily" ? (day + 1) * DAY_MS : weekStartMs(week + 1);
+        state.pools[id] ??= { id, kind, tier, cls, name: `${kind.toUpperCase()} ${t.name}`, stakeLamports: Math.round(t.sol * LAMPORTS_PER_SOL), opensAt, closesAt, entrants: [] };
+        out.push(state.pools[id]);
+      });
+    }
   }
   // admin sprint pools that are still open or just settled
   for (const p of Object.values(state.pools)) if (p.kind === "sprint" && (p.closesAt > now || (p.settled && now - p.settled.at < 3 * 3600_000))) out.push(p);
@@ -171,6 +178,7 @@ function publicPool(p: Pool, player: string) {
   return {
     id: p.id,
     kind: p.kind,
+    cls: p.cls ?? "spec",
     name: p.name,
     stakeSol: sol(p.stakeLamports),
     opensAt: p.opensAt,
@@ -265,23 +273,23 @@ export async function confirmEntry(player: string, wallet: string, name: string,
 // ---------------------------------------------------------------- laps
 
 /** A verified pass lap counts in every pool the player had entered whose window contains it. */
-export function recordPassLap(player: string, lap: { us: number; attempt: string; inputHash: string }) {
+export function recordPassLap(player: string, lap: { us: number; attempt: string; inputHash: string }, cls: PassClass = "spec") {
   const at = Date.now();
   const touched: { pool: string; rank: number; of: number }[] = [];
   for (const p of Object.values(state.pools)) {
-    if (p.settled || at < p.opensAt || at >= p.closesAt) continue;
+    if (p.settled || at < p.opensAt || at >= p.closesAt || (p.cls ?? "spec") !== cls) continue;
     const e = p.entrants.find((x) => x.player === player && x.enteredAt <= at);
     if (!e) continue;
     if (!e.best || lap.us < e.best.us) e.best = { ...lap, at };
     const { ranked } = standings(p);
-    touched.push({ pool: p.name, rank: ranked.indexOf(e) + 1, of: p.entrants.length });
+    touched.push({ pool: `${p.name} ${cls.toUpperCase()}`, rank: ranked.indexOf(e) + 1, of: p.entrants.length });
   }
   if (touched.length) save();
   return touched;
 }
 
-export const hasOpenPass = (player: string) =>
-  Object.values(state.pools).some((p) => !p.settled && Date.now() < p.closesAt && p.entrants.some((e) => e.player === player));
+export const hasOpenPass = (player: string, cls: PassClass = "spec") =>
+  Object.values(state.pools).some((p) => !p.settled && Date.now() < p.closesAt && (p.cls ?? "spec") === cls && p.entrants.some((e) => e.player === player));
 
 // ---------------------------------------------------------------- settlement
 
