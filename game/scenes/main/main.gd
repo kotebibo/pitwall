@@ -30,6 +30,8 @@ func _ready() -> void:
 	if "--packtest" in args:
 		_show_garage()
 		var o := PackOpening.new()
+		if OS.is_debug_build() and args.find("--packtest") + 1 < args.size():
+			o.medal = args[args.find("--packtest") + 1]  # testing: a medal pack (bronze, silver, gold)
 		o.parts = [
 			{"area": "rear_wing", "concept": "spoon", "rarity": "rare", "serial": "#0412", "stats": {"drag": -21, "downforce": -8}, "display": {"name": "Spoon rear wing"}},
 			{"area": "floor", "concept": "venturi", "rarity": "legendary", "serial": "#0003", "stats": {"downforce": 14, "drag": -7, "grip": -5}, "display": {"name": "Venturi floor"}},
@@ -51,7 +53,10 @@ func _ready() -> void:
 			(_screen as GarageScreen).call("_show_tab", int(args[args.find("--tab") + 1]))  # testing: open a garage tab
 		return
 	if "--passes" in args:
-		_show_passes()
+		var t := "ranked"
+		if OS.is_debug_build() and args.find("--tab") >= 0 and args.find("--tab") + 1 < args.size():
+			t = args[args.find("--tab") + 1]  # testing: open a COMPETE tab (ranked, spec, open)
+		_show_passes(t)
 		return
 	if "--settings" in args and OS.is_debug_build():
 		# testing: the settings screen over the hub (--tab 1: sound, 2: game)
@@ -60,7 +65,10 @@ func _ready() -> void:
 		(_screen as HubScreen).open_settings.call_deferred(tab)
 		return
 	if "--passdrive" in args:
-		_show_pass_drive()
+		_show_comp_drive("spec")
+		return
+	if "--rankeddrive" in args:
+		_show_comp_drive("ranked")
 		return
 	if "--results" in args:
 		var rr: Variant = await Api.get_json("/api/races/" + args[args.find("--results") + 1])
@@ -90,7 +98,7 @@ func _show_hub() -> void:
 	s.qualifying.connect(_show_drive.bind(SessionSim.Kind.QUALIFYING))
 	s.race.connect(_show_race)
 	s.garage.connect(_show_garage)
-	s.passes.connect(_show_passes)
+	s.passes.connect(_show_passes.bind("ranked"))
 	s.tutorial.connect(_show_drive.bind(SessionSim.Kind.PRACTICE, true))
 	_swap(s)
 
@@ -102,26 +110,51 @@ func _show_garage() -> void:
 	_swap(s)
 
 
-func _show_passes() -> void:
-	Api.track("passes_open")
+## COMPETE: ranked, and the SPEC and OPEN race passes. `tab`: "ranked", "spec" or "open".
+func _show_passes(tab: String = "ranked") -> void:
+	Api.track("passes_open", tab)
 	var s := RacePassScreen.new()
+	s.tab = tab
 	s.exited.connect(_show_hub)
-	s.drive.connect(func(_pool: int) -> void: _show_pass_drive())
+	s.drive.connect(func(mode: String, _pool: int) -> void: _show_comp_drive(mode))
 	_swap(s)
 
 
-## A race-pass lap: qualifying rules on the standard car, the same car for everyone.
-func _show_pass_drive() -> void:
+const COMP_SESSIONS := {"ranked": "ranked", "spec": "pass", "open": "pass_open"}
+
+
+## A competition lap, qualifying rules. mode "ranked": a ranked race (standard car, your own
+## setup, the first lap is the result); "spec": a SPEC race-pass lap (standard car);
+## "open": an OPEN race-pass lap (your own car: parts, look and livery).
+func _show_comp_drive(mode: String) -> void:
+	if not COMP_SESSIONS.has(mode):
+		mode = "spec"
 	var s := DriveScreen.new()
 	s.kind = SessionSim.Kind.QUALIFYING
-	s.title = "RACE PASS"
+	s.title = {"ranked": "RANKED RACE", "spec": "SPEC RACE PASS", "open": "OPEN RACE PASS"}[mode]
 	s.setup = Profile.setup.duplicate()
 	s.stats = Profile.stats()
-	s.car_spec = {}
-	s.car_parts = {"front_wing": "outwash", "rear_wing": "highdf", "sidepods": "downwash", "floor": "low_rake"}
-	s.on_attempt = _new_attempt.bind(SessionSim.Kind.QUALIFYING, "pass")
+	if mode == "open":
+		s.car_spec = Catalog.car_spec()
+		s.car_parts = Catalog.car_look()
+		s.team_color = Catalog.livery_color("primary")
+		s.team_secondary = Catalog.livery_color("secondary")
+	else:
+		s.car_spec = {}
+		s.car_parts = {"front_wing": "outwash", "rear_wing": "highdf", "sidepods": "downwash", "floor": "low_rake"}
+	s.ranked = mode == "ranked"
+	if s.ranked and not RankedMock.enabled():
+		# chase the day's fastest ranked lap (GET /api/ranked daily.ghost)
+		var daily: Variant = RankedView.last_info.get("daily")
+		var ghost: Variant = (daily as Dictionary).get("ghost") if daily is Dictionary else null
+		if ghost is Dictionary and (ghost as Dictionary).get("attempt") is String:
+			s.rival_attempt = ghost["attempt"]
+	s.exit_text = "EXIT TO COMPETE"
+	s.on_attempt = _new_attempt.bind(SessionSim.Kind.QUALIFYING, COMP_SESSIONS[mode])
 	s.verify_laps = true
-	s.exited.connect(_show_passes)
+	s.exited.connect(_show_passes.bind(mode))
+	s.ranked_again.connect(_show_comp_drive.bind("ranked"))
+	Api.track("comp_start", mode)
 	_swap(s)
 
 
@@ -151,12 +184,17 @@ func _show_drive(kind: SessionSim.Kind, tutorial: bool = false) -> void:
 
 ## Asks the server for an attempt seed. In qualifying the first run locks the setup.
 func _new_attempt(kind: SessionSim.Kind, session: String = "") -> Variant:
-	var res: Variant = await Api.post_json("/api/attempts", {
-		"player": Profile.id,
-		"name": Profile.team_name,
-		"session": session if session != "" else ("practice" if kind == SessionSim.Kind.PRACTICE else "qualifying"),
-		"setup": Profile.setup,
-	})
+	var res: Variant
+	if session == "ranked" and RankedMock.enabled():
+		await get_tree().create_timer(0.3).timeout
+		res = RankedMock.attempt()  # debug only: --mock-ranked
+	else:
+		res = await Api.post_json("/api/attempts", {
+			"player": Profile.id,
+			"name": Profile.team_name,
+			"session": session if session != "" else ("practice" if kind == SessionSim.Kind.PRACTICE else "qualifying"),
+			"setup": Profile.setup,
+		})
 	if not res is Dictionary:
 		return null
 	var r: Dictionary = res
@@ -168,7 +206,8 @@ func _new_attempt(kind: SessionSim.Kind, session: String = "") -> Variant:
 		var you: Dictionary = Profile.event.get("you", {})
 		you["setupLocked"] = true
 		Profile.event["you"] = you
-	return {"attempt": r.get("attempt", ""), "seed": seed, "car": r.get("car", {}), "stats": r.get("stats", {}), "setup": r.get("setup", {})}
+	return {"attempt": r.get("attempt", ""), "seed": seed, "car": r.get("car", {}), "stats": r.get("stats", {}), "setup": r.get("setup", {}),
+		"rankedMatch": r.get("rankedMatch")}
 
 
 func _show_race() -> void:

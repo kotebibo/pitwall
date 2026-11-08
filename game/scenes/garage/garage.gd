@@ -551,8 +551,15 @@ func _refresh_packs() -> void:
 	for c in _packs_page.get_children():
 		c.queue_free()
 	var count := Catalog.unopened_packs()
+	# the next pack to open is the oldest unopened one (pending[0]): show its medal
+	var pinfo: Dictionary = Catalog.garage.get("packs", {}) if Catalog.garage.get("packs") is Dictionary else {}
+	var pending: Array = pinfo.get("pending", []) if pinfo.get("pending") is Array else []
+	var next_medal := ""
+	if count > 0 and not pending.is_empty() and pending[0] is Dictionary and (pending[0] as Dictionary).get("medal") is String:
+		next_medal = String(pending[0]["medal"])
 	var art := TextureRect.new()
-	art.texture = PartCard.texture("res://assets/sprites/packs/pack_closed.png")
+	art.texture = PackOpening.pack_texture("pack_closed", next_medal)
+	art.material = PackOpening.medal_material(next_medal)
 	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.size = Vector2(96, 112) * 1.7
@@ -566,6 +573,10 @@ func _refresh_packs() -> void:
 		var bob := create_tween().set_loops()
 		bob.tween_property(art, "position:y", 18.0, 0.8).set_trans(Tween.TRANS_SINE)
 		bob.tween_property(art, "position:y", 24.0, 0.8).set_trans(Tween.TRANS_SINE)
+	if count > 0:
+		var next := Ui.label("NEXT: " + PackOpening.pack_title(next_medal), Ui.SIZE_SMALL, PackOpening.MEDAL_TINT.get(next_medal, Ui.INK_2), true)
+		next.position = Vector2(66, 216)
+		_packs_page.add_child(next)
 	var open := Ui.button("OPEN PACK" if count > 0 else "NO PACKS YET", true)
 	open.disabled = count == 0
 	open.custom_minimum_size = Vector2(150, 26)
@@ -579,7 +590,17 @@ func _refresh_packs() -> void:
 	_packs_page.add_child(info)
 	info.add_child(Ui.label("DEVELOPMENT PACKS", Ui.SIZE_HEADING, Ui.INK, true))
 	info.add_child(Ui.label("Three unique parts each. Earned on track, never sold.", Ui.SIZE_SMALL, Ui.INK_2))
-	for line: String in ["First qualifying run of the day", "Top 3 in qualifying", "Every race you finish"]:
+	var medals := {}
+	for pk: Variant in pending:
+		if pk is Dictionary and (pk as Dictionary).get("medal") is String:
+			medals[pk["medal"]] = int(medals.get(pk["medal"], 0)) + 1
+	if not medals.is_empty():
+		var mrow := Ui.hbox(8)
+		for m: String in ["gold", "silver", "bronze"]:
+			if medals.has(m):
+				mrow.add_child(Ui.label("%d %s" % [int(medals[m]), PackOpening.pack_title(m)], Ui.SIZE_SMALL, PackOpening.MEDAL_TINT[m], true))
+		info.add_child(mrow)
+	for line: String in ["First qualifying run of the day", "Top 3 in qualifying", "Every race you finish", "Ranked medals: a bronze, silver or gold medal pack a day"]:
 		var r := Ui.hbox(6)
 		var dot := ColorRect.new()
 		dot.color = Ui.RED
@@ -615,6 +636,9 @@ func _open_pack() -> void:
 		return
 	var overlay := PackOpening.new()
 	overlay.parts = res["parts"]
+	var opened: Variant = (res as Dictionary).get("pack")
+	if opened is Dictionary and (opened as Dictionary).get("medal") is String:
+		overlay.medal = String(opened["medal"])
 	add_child(overlay)
 	await overlay.closed
 	overlay.queue_free()
@@ -627,10 +651,12 @@ func _open_pack() -> void:
 
 func _load() -> void:
 	var ok: bool = await Catalog.load_garage()
-	if not ok:
+	if RankedMock.enabled():
+		RankedMock.patch_garage(Catalog.garage)  # debug only: medal packs to look at
+	elif not ok:
 		_status.text = "Offline: parts and packs need the server. Tuning still works."
 	_refresh_all()
-	if not Profile.garage_tour_done:
+	if not Profile.garage_tour_done and not RankedMock.enabled():  # (debug mock runs: no tour, for screenshots)
 		await get_tree().create_timer(0.4).timeout
 		_start_tour()
 
@@ -674,3 +700,5 @@ func _refresh_all() -> void:
 	_refresh_spec()
 	_tuning.refresh()  # the fitted parts change what a setup does
 	_tab_buttons[2].text = "PACKS (%d)" % Catalog.unopened_packs() if Catalog.unopened_packs() > 0 else "PACKS"
+	if _tab == 2:
+		_refresh_packs()  # the page drawn before the garage loaded

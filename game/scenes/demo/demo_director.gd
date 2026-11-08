@@ -374,6 +374,9 @@ func _passes2() -> void:
 	var screen := find_class("RacePassScreen")
 	if screen == null:
 		return
+	if screen.has_method("show_tab"):
+		screen.call("show_tab", "spec")  # COMPETE opens on RANKED
+		await wait(0.4)
 	var grid: Node = screen.get("_grid")
 	var cards: Array = grid.get_children() if grid else []
 	for i in [2, 4, 5]:
@@ -395,6 +398,9 @@ func _passes() -> void:
 	var screen := find_class("RacePassScreen")
 	if screen == null:
 		return
+	if screen.has_method("show_tab"):
+		screen.call("show_tab", "spec")  # COMPETE opens on RANKED
+		await wait(0.4)
 	var grid: Node = screen.get("_grid")
 	var cards: Array = grid.get_children() if grid else []
 	for i in [0, 2, 3, 5]:
