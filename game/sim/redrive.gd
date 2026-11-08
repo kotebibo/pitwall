@@ -50,13 +50,16 @@ func _redrive(path: String) -> Dictionary:
 		return {"error": "bad input log"}
 	var car: Dictionary = r.get("car", {})
 	var s := SessionSim.new(track, setup, stats, seed, kind, car)
+	var distance := 0  # fixed point metres driven, for part wear
 	for i in raw.size() / 4:
 		s.step(raw[4 * i] - 128, raw[4 * i + 1], raw[4 * i + 2], raw[4 * i + 3])
+		distance += s.car.speed / Fx.TICKS
 	return {
 		"physicsVersion": SessionSim.PHYSICS_VERSION,
 		"ticks": s.tick,
 		"laps": s.laps,
 		"inputHash": SessionSim.hash_inputs(raw),
+		"metres": distance >> 16,
 	}
 
 
@@ -69,8 +72,10 @@ func _redrive_race(r: Dictionary, track: TrackData, seed: PackedByteArray) -> Di
 	for g: Variant in r.get("grid", []):
 		grid.append(int(g))
 	var race := RaceSim.new(track, r.get("entries", []), seed, grid, int(r.get("laps", 5)))
+	var distance := 0  # fixed point metres the player's car drove
 	for i in raw.size() / 4:
 		race.step(raw[4 * i] - 128, raw[4 * i + 1], raw[4 * i + 2], raw[4 * i + 3])
+		distance += race.cars[0].speed / Fx.TICKS
 		if race.finished():
 			break
 	var cars := []
@@ -83,4 +88,5 @@ func _redrive_race(r: Dictionary, track: TrackData, seed: PackedByteArray) -> Di
 		"order": race.order(),
 		"cars": cars,
 		"inputHash": SessionSim.hash_inputs(raw),
+		"metres": distance >> 16,
 	}

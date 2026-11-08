@@ -14,7 +14,8 @@ import { config } from "./config.ts";
 
 // ---------------------------------------------------------------- catalogue
 
-export const SPEC_KEYS = ["downforce", "drag", "balance", "power", "harvest", "grip", "traction"] as const;
+/** Car spec keys: per-mille changes, kW for power, kg for weight (see specKeys in game/data/parts.json). */
+export const SPEC_KEYS = ["downforce", "drag", "balance", "power", "harvest", "grip", "traction", "weight"] as const;
 export type SpecKey = (typeof SPEC_KEYS)[number];
 export type Spec = Record<SpecKey, number>;
 export type Range = [number, number];
@@ -76,7 +77,7 @@ export const catalogPath = config.partsCatalog || join(config.gameDir, "data", "
 export const catalog: Catalog = JSON.parse(readFileSync(catalogPath, "utf8"));
 export const AREAS = Object.keys(catalog.areas);
 
-export const zeroSpec = (): Spec => ({ downforce: 0, drag: 0, balance: 0, power: 0, harvest: 0, grip: 0, traction: 0 });
+export const zeroSpec = (): Spec => ({ downforce: 0, drag: 0, balance: 0, power: 0, harvest: 0, grip: 0, traction: 0, weight: 0 });
 export function addSpec(a: Spec, b: Partial<Spec>): Spec {
   const out = { ...a };
   for (const k of SPEC_KEYS) out[k] += b[k] ?? 0;
@@ -242,9 +243,43 @@ export interface PartLike {
   concept: string;
   traits: string[];
   stats: Spec;
+  /** For wear: starter parts never wear; others fade over the last 30% of their area's lifeKm. */
+  rarity?: string;
+  km?: number;
 }
 
 const familyOf = (p: PartLike | undefined) => (p ? (catalog.areas[p.area]?.concepts[p.concept]?.family ?? null) : null);
+
+/** Wear starts to cost performance at this share of a part's life. */
+export const WEAR_FADE_FROM = 0.7;
+/** Per-mille effect left at the end of a part's life: a worn part is never worse than the standard part. */
+export const WEAR_MIN_EFFECT = 600;
+
+/** Per-mille share of a part's stats it still gives: 1000 until 70% of its life, then down to 600 at 100%. */
+export function wearEffect(p: { area: string; rarity?: string; km?: number }): number {
+  const life = catalog.areas[p.area]?.lifeKm ?? 0;
+  if (p.rarity === "starter" || !(life > 0)) return 1000;
+  const used = (p.km ?? 0) / life;
+  if (used <= WEAR_FADE_FROM) return 1000;
+  const fade = Math.min(1, (used - WEAR_FADE_FROM) / (1 - WEAR_FADE_FROM));
+  return Math.round(1000 - (1000 - WEAR_MIN_EFFECT) * fade);
+}
+
+/**
+ * Stats scaled by a per-mille effect. Each is rounded toward the faster side
+ * (lap weights), so a worn part keeps at least its share of its lap-time points
+ * and a part that was better than the standard one never ends up worse.
+ */
+function scaleSpec(stats: Partial<Spec>, effect: number): Spec {
+  const w = catalog.lapWeights.weights;
+  const out = zeroSpec();
+  for (const k of SPEC_KEYS) {
+    const v = stats[k] ?? 0;
+    const x = (v * effect) / 1000;
+    out[k] = effect === 1000 ? v : (w[k] ?? 0) > 0 ? Math.ceil(x) : (w[k] ?? 0) < 0 ? Math.floor(x) : Math.sign(x) * Math.round(Math.abs(x));
+  }
+  return out;
+}
 
 /** Sum of the fitted parts plus conditional traits and synergies, and what the car looks like. */
 export function carDetail(fitted: PartLike[]) {
@@ -253,12 +288,15 @@ export function carDetail(fitted: PartLike[]) {
   let spec = zeroSpec();
   const synergies: { id: string; name: string; description: string; delta: Partial<Spec> }[] = [];
   for (const p of fitted) {
-    spec = addSpec(spec, p.stats);
+    // a worn part gives less of everything it changes (wearEffect)
+    const effect = wearEffect(p);
+    spec = addSpec(spec, scaleSpec(p.stats, effect));
     for (const t of p.traits) {
       const c = catalog.traits[t]?.conditional;
       if (c?.when === "floor_family_matches" && p.area !== "floor" && familyOf(p) && familyOf(p) === familyOf(byArea.floor)) {
-        spec = addSpec(spec, c.delta);
-        synergies.push({ id: `trait:${t}:${p.area}`, name: catalog.traits[t].name, description: catalog.traits[t].description, delta: c.delta });
+        const delta = effect === 1000 ? c.delta : scaleSpec(c.delta, effect);
+        spec = addSpec(spec, delta);
+        synergies.push({ id: `trait:${t}:${p.area}`, name: catalog.traits[t].name, description: catalog.traits[t].description, delta });
       }
     }
   }
@@ -286,9 +324,10 @@ export function carDetail(fitted: PartLike[]) {
 
 // ---------------------------------------------------------------- supply proofs
 
-/** Hash committed for a part: its immutable fields in a fixed order. */
+/** Hash committed for a part: its immutable fields in a fixed order (weight only for parts rolled with one, so older hashes still verify). */
 export function partHash(p: { id: string; area: string; concept: string; rarity: string; stats: Spec; traits: string[]; serial: string | null; week: number | null }): string {
-  const body = JSON.stringify([p.id, p.area, p.concept, p.rarity, SPEC_KEYS.map((k) => p.stats[k]), p.traits, p.serial, p.week]);
+  const keys = p.stats.weight === undefined ? SPEC_KEYS.filter((k) => k !== "weight") : SPEC_KEYS;
+  const body = JSON.stringify([p.id, p.area, p.concept, p.rarity, keys.map((k) => p.stats[k]), p.traits, p.serial, p.week]);
   return createHash("sha256").update(`pitwall-part:${body}`).digest("hex");
 }
 
@@ -343,6 +382,9 @@ export interface Part {
   tradeable: boolean;
   packId: string | null;
   hash: string | null;
+  /** Worn out (km reached the area's lifeKm): unfitted and kept in the garage, greyed. */
+  retired?: boolean;
+  retiredAt?: number;
 }
 export interface Pack {
   id: string;
@@ -363,6 +405,8 @@ interface PlayerParts {
   awards: Record<string, string>;
   /** Races already added to the fitted parts' records. */
   raced?: Record<string, number>;
+  /** R&D credits from scrapping parts. */
+  credits?: number;
 }
 interface Supply {
   week: number;
@@ -499,6 +543,10 @@ export function partView(part: Part, equipped = false) {
       week: part.week === null ? null : weekLabel(part.week),
       lifeKm: part.rarity === "starter" ? null : area.lifeKm,
       wear: part.rarity === "starter" ? 0 : Math.min(1, part.km / area.lifeKm),
+      /** Per-mille of the part's stats it still gives (wearEffect). */
+      effect: wearEffect(part),
+      kmLeft: part.rarity === "starter" ? null : Math.max(0, Math.round((area.lifeKm - part.km) * 10) / 10),
+      retired: Boolean(part.retired),
       traits: part.traits.map((t) => ({ id: t, name: catalog.traits[t].name, description: catalog.traits[t].description })),
     },
   };
@@ -520,6 +568,48 @@ function packSummary(p: PlayerParts) {
 
 const fittedParts = (p: PlayerParts) => AREAS.map((a) => p.inventory.find((x) => x.id === p.equipped[a])).filter((x): x is Part => Boolean(x));
 
+/** Ids of the parts fitted now (an attempt keeps them, so its distance goes on the parts that drove it). */
+export function fittedPartIds(player: string): string[] {
+  return fittedParts(loadPlayer(player)).map((x) => x.id);
+}
+
+const roundKm = (km: number) => Math.round(km * 10) / 10;
+
+/** Adds km to parts (not starters, not retired) and retires the ones that reach their life; returns the parts retired. Does not save. */
+function wearParts(p: PlayerParts, parts: Part[], km: number): Part[] {
+  const add = Math.max(0, Number.isFinite(km) ? km : 0);
+  const retired: Part[] = [];
+  for (const part of parts) {
+    if (part.rarity === "starter" || part.retired) continue;
+    part.km = roundKm(part.km + add);
+    if (part.km >= catalog.areas[part.area].lifeKm) {
+      part.retired = true;
+      part.retiredAt = clock.now();
+      retired.push(part);
+      if (p.equipped[part.area] === part.id) {
+        // the area falls back to its starter part, which never leaves the garage
+        const starter = p.inventory.find((x) => x.area === part.area && x.rarity === "starter");
+        if (starter) p.equipped[part.area] = starter.id;
+      }
+    }
+  }
+  return retired;
+}
+
+/**
+ * Verified driving wears the parts that drove it: km on every fitted part, or
+ * on the named parts (the ones fitted when a qualifying attempt started) that
+ * are still in the garage. A part at the end of its life is retired: unfitted
+ * (its area gets the starter part back) and kept in the garage, greyed.
+ */
+export function addDistance(player: string, km: number, partIds?: string[]) {
+  const p = loadPlayer(player);
+  const parts = partIds ? partIds.map((id) => p.inventory.find((x) => x.id === id)).filter((x): x is Part => Boolean(x)) : fittedParts(p);
+  const retired = wearParts(p, parts, km);
+  savePlayer(p);
+  return { km: roundKm(Math.max(0, km)), retired: retired.map((x) => x.id) };
+}
+
 /** The car spec the physics drives with: the sum of the fitted parts, traits and synergies. */
 export function carSpec(player: string): Spec {
   return carDetail(fittedParts(loadPlayer(player))).spec;
@@ -531,11 +621,12 @@ export function garage(player: string) {
   const detail = carDetail(fittedParts(p));
   const inventory = p.inventory
     .map((x) => partView(x, fitted.has(x.id)))
-    .sort((a, b) => Number(b.equipped) - Number(a.equipped) || b.createdAt - a.createdAt || AREAS.indexOf(a.area) - AREAS.indexOf(b.area));
+    .sort((a, b) => Number(b.equipped) - Number(a.equipped) || Number(a.display.retired) - Number(b.display.retired) || b.createdAt - a.createdAt || AREAS.indexOf(a.area) - AREAS.indexOf(b.area));
   return {
     player,
     inventory,
     equipped: p.equipped,
+    credits: p.credits ?? 0,
     car: detail.spec,
     synergies: detail.synergies,
     looks: detail.looks,
@@ -579,12 +670,12 @@ export function awardRaceFinish(player: string, raceId: string | number, result:
   p.raced ??= {};
   if (!p.raced[key]) {
     p.raced[key] = clock.now();
-    for (const part of fittedParts(p)) {
-      if (part.rarity === "starter") continue;
+    const fitted = fittedParts(p).filter((part) => part.rarity !== "starter" && !part.retired);
+    for (const part of fitted) {
       part.races += 1;
       if (result.won) part.wins += 1;
-      part.km += Math.max(0, Math.round(result.km ?? 0));
     }
+    wearParts(p, fitted, Math.max(0, Math.round(result.km ?? 0)));
     savePlayer(p);
   }
   return awardPack(player, "race_finish", key);
@@ -648,9 +739,24 @@ export function equip(player: string, partId: string) {
   if (!part) throw new PartsError(404, "that part is not in your garage");
   if (p.equipped[part.area] !== part.id) {
     if (lockCheck(player)) throw new PartsError(409, "Parc fermé: parts are locked after your first qualifying run until the event closes.");
-    if (part.rarity !== "starter" && part.km >= catalog.areas[part.area].lifeKm) throw new PartsError(400, "that part is worn out");
+    if (part.retired || (part.rarity !== "starter" && part.km >= catalog.areas[part.area].lifeKm)) throw new PartsError(400, "that part is worn out");
     p.equipped[part.area] = part.id;
     savePlayer(p);
   }
   return garage(player);
+}
+
+/** Scraps a part for R&D credits by rarity (catalogue scrapCredits). Starter and fitted parts cannot be scrapped. */
+export function scrapPart(player: string, partId: string) {
+  const p = loadPlayer(player);
+  const i = p.inventory.findIndex((x) => x.id === partId);
+  if (i < 0) throw new PartsError(404, "that part is not in your garage");
+  const part = p.inventory[i];
+  if (part.rarity === "starter") throw new PartsError(400, "starter parts cannot be scrapped");
+  if (p.equipped[part.area] === part.id) throw new PartsError(400, "that part is fitted: unfit it first");
+  const credits = catalog.rarities[part.rarity]?.scrapCredits ?? 0;
+  p.inventory.splice(i, 1);
+  p.credits = (p.credits ?? 0) + credits;
+  savePlayer(p);
+  return { ...garage(player), scrapped: { id: part.id, credits } };
 }

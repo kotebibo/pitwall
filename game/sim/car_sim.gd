@@ -78,6 +78,10 @@ var brake_grip := ONE  # Braking stat: brake force before front lock-up
 var traction_grip := ONE  # Traction stat: throttle before rear wheelspin
 var slide_grip := 52429  # Cornering stat: grip kept past the peak (0.80 base)
 var harvest_eff := 0  # Energy stat
+var mass := MASS  # kg: MASS plus the fitted parts' weight
+var mass_front := MASS_FRONT
+var mass_rear := MASS_REAR
+var inertia := INERTIA
 var grip_mult := ONE  # tiny per-attempt variation
 var wind_x := 0
 var wind_y := 0
@@ -140,6 +144,12 @@ func configure(setup: Dictionary, stats: Dictionary, seed: PackedByteArray, car:
 	var traction := clampi(int(car.get("traction", 0)), -120, 120)
 	traction_grip = traction_grip * (1000 + traction) / 1000
 	f_drive_max = F_DRIVE_MAX / 1000 * (1000 + traction)
+	# Weight in kg against the standard parts: the centre of mass stays put, so
+	# the axles share it as the base car does and the yaw inertia scales with it
+	mass = MASS + clampi(int(car.get("weight", 0)), -30, 30)
+	mass_front = MASS_FRONT * mass / MASS
+	mass_rear = mass - mass_front
+	inertia = INERTIA * mass / MASS
 
 	# The attempt seed moves grip by up to 0.4% and adds up to 3 m/s of wind,
 	# so a lap recorded for one attempt does not replay cleanly in another.
@@ -224,11 +234,11 @@ func step(steer: int, throttle: int, brake: int, boost: bool, reverse: bool = fa
 		drag = Fx.mul(drag, SM_DRAG)
 
 	# Loads on each axle: static weight, downforce, weight transfer
-	var weight := MASS * G
+	var weight := mass * G
 	var static_f := Fx.mul(weight, Fx.div(B_CG, WHEELBASE))
 	var static_r := weight - static_f
 	var down_f := Fx.mul(downforce, front_share)
-	var transfer := Fx.mul(MASS * accel_long, Fx.div(CG_HEIGHT, WHEELBASE))
+	var transfer := Fx.mul(mass * accel_long, Fx.div(CG_HEIGHT, WHEELBASE))
 	var fz_f := maxi(static_f + down_f - transfer, static_f / 6)
 	var fz_r := maxi(static_r + downforce - down_f + transfer, static_r / 6)
 
@@ -274,7 +284,7 @@ func step(steer: int, throttle: int, brake: int, boost: bool, reverse: bool = fa
 	if not reversing and brake > 0:
 		brake_force = F_BRAKE_MAX / 255 * brake
 		# Never push the car backwards once it has stopped
-		brake_force = mini(brake_force, MASS * absi(v_long) * Fx.TICKS)
+		brake_force = mini(brake_force, mass * absi(v_long) * Fx.TICKS)
 	var brake_f := Fx.mul(brake_force, brake_front)
 	var brake_r := brake_force - brake_f
 	var fx_f := -brake_f * forward
@@ -292,8 +302,8 @@ func step(steer: int, throttle: int, brake: int, boost: bool, reverse: bool = fa
 
 	# A tyre cannot push harder than it takes to stop its own sideways slide in one tick
 	var wheel_slip_f := lat_f - Fx.mul(v_long, steer_angle)
-	var cap_f := MASS_FRONT * absi(wheel_slip_f) * Fx.TICKS
-	var cap_r := MASS_REAR * absi(lat_r) * Fx.TICKS
+	var cap_f := mass_front * absi(wheel_slip_f) * Fx.TICKS
+	var cap_r := mass_rear * absi(lat_r) * Fx.TICKS
 	fy_f = clampi(fy_f, -cap_f, cap_f)
 	fy_r = clampi(fy_r, -cap_r, cap_r)
 
@@ -315,18 +325,18 @@ func step(steer: int, throttle: int, brake: int, boost: bool, reverse: bool = fa
 		fwx -= Fx.mul(drag, Fx.div(air_x, air_speed))
 		fwy -= Fx.mul(drag, Fx.div(air_y, air_speed))
 	if speed > 0:
-		var r := mini(roll, MASS * speed * Fx.TICKS)
+		var r := mini(roll, mass * speed * Fx.TICKS)
 		fwx -= Fx.mul(r, Fx.div(vx, speed))
 		fwy -= Fx.mul(r, Fx.div(vy, speed))
 
 	# Integrate
-	vx += fwx / (MASS * Fx.TICKS)
-	vy += fwy / (MASS * Fx.TICKS)
-	yaw_rate += torque / (INERTIA * Fx.TICKS)
+	vx += fwx / (mass * Fx.TICKS)
+	vy += fwy / (mass * Fx.TICKS)
+	yaw_rate += torque / (inertia * Fx.TICKS)
 	heading = Fx.wrap_angle(heading + yaw_rate / Fx.TICKS)
 	px += vx / Fx.TICKS
 	py += vy / Fx.TICKS
-	accel_long = f_long / MASS
+	accel_long = f_long / mass
 
 	# Energy: Boost spends the battery, braking and lifting refill it
 	if boosting:

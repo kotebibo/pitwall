@@ -15,7 +15,7 @@ import * as chain from "./chain.ts";
 import { config, DEV_SEED_SECRET } from "./config.ts";
 import { PLAYER_DRIVER, TRACKS, TRACK_NAMES } from "./content.ts";
 import { drivenInputs, finishDrivenRace, getDrivenRace, startDrivenRace } from "./driven.ts";
-import { catalog, equip, garage, openPack } from "./parts.ts";
+import { catalog, equip, garage, openPack, scrapPart } from "./parts.ts";
 import { attemptPlayer, eventInfo, ghost, startAttempt, submitRun } from "./quali.ts";
 import { clientIp, limits, takeChainRace } from "./ratelimit.ts";
 import { bootstrap, getRace, startRace, validateSetup, verifyRace } from "./races.ts";
@@ -242,6 +242,13 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
       const b = await body(req);
       authorize(String(b.player ?? ""));
       return json(res, 200, equip(String(b.player ?? ""), String(b.partId ?? "")));
+    }
+    if (req.method === "POST" && resource === "garage" && id === "scrap") {
+      const b = await body(req);
+      authorize(String(b.player ?? ""));
+      const scrapped = scrapPart(String(b.player ?? ""), String(b.partId ?? ""));
+      stats.record("part_scrapped", String(b.player ?? ""), `+${scrapped.scrapped.credits} credits`);
+      return json(res, 200, scrapped);
     }
     if (req.method === "POST" && resource === "packs" && id === "open") {
       const b = await body(req);

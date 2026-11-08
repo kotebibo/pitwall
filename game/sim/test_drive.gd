@@ -13,6 +13,7 @@ func _init() -> void:
 	var args := OS.get_cmdline_user_args()
 	var laps_wanted := 3
 	var out_path := ""
+	var car := {}  # parts spec, e.g. --car {"weight":20}
 	for i in args.size() - 1:
 		if args[i] == "--seed":
 			seed = PackedByteArray()
@@ -25,8 +26,12 @@ func _init() -> void:
 			STATS = {"braking": int(v[0]), "cornering": int(v[1]), "traction": int(v[2]), "energy": int(v[3])}
 		elif args[i] == "--out":
 			out_path = args[i + 1]
+		elif args[i] == "--car":
+			var parsed: Variant = JSON.parse_string(args[i + 1])
+			if parsed is Dictionary:
+				car = parsed
 	var pilot := Autopilot.new(track)
-	var s := SessionSim.new(track, SETUP, STATS, seed)
+	var s := SessionSim.new(track, SETUP, STATS, seed, SessionSim.Kind.QUALIFYING, car)
 	var top := 0.0
 	var walls := 0
 	var limits := 0
@@ -66,7 +71,7 @@ func _init() -> void:
 	var rle := SessionSim.encode_inputs(s.inputs)
 	var raw := SessionSim.decode_inputs(rle)
 	print("inputs %d bytes raw, %d RLE, roundtrip %s, hash %s" % [s.inputs.size(), rle.size(), raw == s.inputs, SessionSim.hash_inputs(raw).substr(0, 16)])
-	var r := SessionSim.new(track, SETUP, STATS, seed)
+	var r := SessionSim.new(track, SETUP, STATS, seed, SessionSim.Kind.QUALIFYING, car)
 	for i in raw.size() / 4:
 		r.step(raw[4 * i] - 128, raw[4 * i + 1], raw[4 * i + 2], raw[4 * i + 3])
 	var same := r.laps.size() == s.laps.size()
