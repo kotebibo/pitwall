@@ -112,8 +112,12 @@ function standings(p: Pool) {
 
 // ---------------------------------------------------------------- pools
 
+// Each server (live, local dev, tests) gets its own range of on-chain pool ids, derived from its
+// secret, so two servers sharing the devnet program never enter or settle each other's pools.
+const NAMESPACE = createHash("sha256").update(`pools:${config.seedSecret}`).digest().readUInt32LE(0) % 100_000;
+
 function poolId(kind: Kind, window: number, tier: number) {
-  return (kind === "daily" ? 1 : kind === "weekly" ? 2 : 3) * 1_000_000_000 + window * 10 + tier;
+  return NAMESPACE * 10_000_000_000 + (kind === "daily" ? 1 : kind === "weekly" ? 2 : 3) * 1_000_000_000 + window * 10 + tier;
 }
 
 /** Today's and this week's pools (created lazily; on-chain when someone first enters). */
