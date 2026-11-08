@@ -5,7 +5,7 @@ Writes game/assets/sprites/ranked/*.png and ranked/preview_ranked.png
 
 Emblems are built from layered masks (back to front): tyre ring, wing blades,
 laurel, shield (raised rim + recessed enamel field), chequered band, helmet or
-crown, gems. Each tier switches layers on and grows the shield, so the ten
+crystal or crown, gems. Each tier switches layers on and grows the shield, so the ten
 tiers read as one family that gets more ornate. Light from the top-left, every
 part gets a 1 px outline in the darkest step of its own ramp.
 """
@@ -20,7 +20,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
 import packs  # noqa: E402
-from pxl import (FONT3, FONT5, alpha_over, canvas, draw_text, ellipse_mask, hx,  # noqa: E402
+from pxl import (FONT5, alpha_over, canvas, draw_text, ellipse_mask, hx,  # noqa: E402
                  poly_mask, put, rect, save, scale, text_width)
 
 S = 64                    # emblem canvas
@@ -85,16 +85,16 @@ VISOR = [hx("#0c1420"), hx("#163049"), hx("#2a5f8f"), hx("#4f9ad0"), hx("#9fd4f2
 # tier table. size grows, layers switch on. field = enamel ramp for the centre.
 TIERS = [
     dict(name="iron", col="#6e6f78", sw=28, sh=33, top=17, rough=True, rivets=True),
-    dict(name="bronze", col="#c98a5a", sw=30, sh=35, top=16, tyre=True, rivets=True),
+    dict(name="bronze", col="#c98a5a", sw=30, sh=35, top=16, tyre=True, rivets=True, field="#b07448"),
     dict(name="silver", col="#c6c8d0", sw=31, sh=36, top=15, tyre=True, cheq=True, peak=2),
     dict(name="gold", col="#f2c230", sw=32, sh=37, top=15, tyre=True, cheq=True, peak=2, laurel=3,
          helmet=True),
     dict(name="platinum", col="#5ec8b0", sw=33, sh=38, top=15, tyre=True, cheq=True, peak=3, laurel=4,
          helmet=True, wings=2),
     dict(name="emerald", col="#3ecf6a", sw=34, sh=38, top=15, tyre=True, cheq=True, peak=3, laurel=4,
-         helmet=True, wings=3, gem="green", sidegems=True),
+         topgem=True, wings=3, gem="green", sidegems=True),
     dict(name="diamond", col="#5ec8e5", sw=34, sh=39, top=15, tyre=True, cheq=True, peak=3, laurel=5,
-         helmet=True, wings=4, gem="ice", facets=True, sidegems=True),
+         topgem=True, wings=4, gem="ice", facets=True, sidegems=True),
     dict(name="master", col="#a855f7", sw=35, sh=40, top=17, tyre=True, cheq=True, peak=2, laurel=5,
          crown=3, wings=4, gem="violet", sidegems=True),
     dict(name="grandmaster", col="#e8352b", sw=36, sh=40, top=17, tyre=True, cheq=True, peak=2, laurel=5,
@@ -127,12 +127,6 @@ def erode(m, r=1):
     for _ in range(r):
         m = m & nb(m, 1, 0) & nb(m, -1, 0) & nb(m, 0, 1) & nb(m, 0, -1)
     return m
-
-
-def mirror(pts):
-    """Left-half polygon points -> both halves mirrored about CX."""
-    right = [(2 * CX - x, y) for (x, y) in reversed(pts)]
-    return list(pts) + right
 
 
 def mirror_mask(m):
@@ -269,7 +263,7 @@ def draw_laurel(img, t, ramp):
             bevel(img, m, ramp, base=3 if side > 0 else 2)
 
 
-def draw_shield(img, t, ramp, field_ramp, rng):
+def draw_shield(img, t, ramp, field_ramp):
     pts = shield_pts(t)
     sm = poly_mask(S, S, pts)
     rim_w = 3
@@ -380,6 +374,34 @@ def draw_helmet(img, t, ramp):
                 img[y, x] = BRAND if x == int(CX) - 1 else hx("#b82a26")
 
 
+def draw_top_crystal(img, t, ramp, gramp):
+    """Big cut crystal set in a small metal mount on the shield's peak."""
+    top = t["top"] - t.get("peak", 0)
+    # mount: short bar in the tier metal
+    mt = np.zeros((S, S), bool)
+    mt[top - 1:top + 2, int(CX - 6):int(CX + 6)] = True
+    bevel(img, mt, ramp, base=3)
+    cy = top - 5
+    hw, hh = 5.0, 7.5
+    pts = [(CX, cy - hh), (CX + hw, cy - hh * 0.35), (CX + hw, cy + hh * 0.30), (CX, cy + hh * 0.85),
+           (CX - hw, cy + hh * 0.30), (CX - hw, cy - hh * 0.35)]
+    m = poly_mask(S, S, pts)
+    img[ring_of(m)] = gramp[0]
+    yy, xx = np.mgrid[0:S, 0:S]
+    u = xx + 0.5 - CX
+    img[m] = gramp[3]
+    img[m & (u < -1.5)] = gramp[4]
+    img[m & (u > 1.5)] = gramp[2]
+    upper = m & (yy + 0.5 < cy - hh * 0.35 + 1)
+    img[upper & (u < 0)] = gramp[5]
+    img[upper & (u >= 0)] = gramp[3]
+    lower = m & (yy + 0.5 > cy + hh * 0.30)
+    img[lower & (u < 0)] = gramp[2]
+    img[lower & (u >= 0)] = gramp[1]
+    put(img, int(CX) - 3, int(cy - 2), gramp[5])
+    put(img, int(CX) - 3, int(cy - 1), gramp[5])
+
+
 def draw_crown(img, t, ramp, gramp):
     n = t["crown"]
     top = t["top"] - t.get("peak", 0)
@@ -426,19 +448,20 @@ def make_emblem(t):
     field_ramp = [field[0], field[0], field[1], field[2], field[3], field[4]]
     if t["name"] == "challenger":
         field_ramp = field
-    rng = np.random.default_rng(7)
     if t.get("tyre"):
         draw_tyre(img, t, ramp)
     if t.get("wings"):
         draw_wings(img, t, trim if t["name"] == "challenger" else ramp)
     if t.get("laurel"):
         draw_laurel(img, t, GOLD_TRIM if t.get("trim") or t["name"] == "gold" else ramp)
-    sm, fm = draw_shield(img, t, ramp, field_ramp, rng)
+    sm, fm = draw_shield(img, t, ramp, field_ramp)
     if t.get("cheq"):
         draw_cheq(img, t, fm)
     gramp = GEM.get(t.get("gem", ""), ramp)
     if t.get("helmet"):
         draw_helmet(img, t, ramp)
+    if t.get("topgem"):
+        draw_top_crystal(img, t, ramp, gramp)
     if t.get("crown"):
         draw_crown(img, t, trim, gramp)
     if t.get("gem"):
