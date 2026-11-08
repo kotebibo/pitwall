@@ -21,6 +21,8 @@ var verify_laps := false
 var car_spec := {}
 var car_parts := {}
 var team_color := Ui.RED
+## Accents and helmet (the player's livery). Colours are presentation only.
+var team_secondary := Color("f1efea")
 ## First-time tutorial: start from a standstill and pass four checked steps.
 var tutorial := false
 var _rookie: RookieTest
@@ -175,6 +177,7 @@ func _build() -> void:
 	_world.add_child(_rival)
 	_car = CarView.new()
 	_car.body = team_color
+	_car.secondary = team_secondary
 	if not car_parts.is_empty():
 		_car.parts = car_parts
 	_car.z_index = 5
@@ -266,7 +269,9 @@ func _build_pause() -> Control:
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(230, 0)
-	panel.position = Vector2(-115, -100)
+	# grows from the centre as its content needs (the key list is wider than 230)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	root.add_child(panel)
 	var box := Ui.vbox(5)
 	panel.add_child(box)

@@ -146,8 +146,9 @@ func _draw() -> void:
 	]
 	var ty := wpos.y + wsize.y + 30
 	for t: String in tips:
-		draw_string(Ui.font, Vector2(wpos.x, ty), t, HORIZONTAL_ALIGNMENT_LEFT, wsize.x + 20, Ui.SIZE_SMALL, Ui.INK_2)
-		ty += 11
+		# wrapped, not cut off, when a line is wider than the wheel column
+		draw_multiline_string(Ui.font, Vector2(wpos.x, ty), t, HORIZONTAL_ALIGNMENT_LEFT, wsize.x + 20, Ui.SIZE_SMALL, -1, Ui.INK_2)
+		ty += Ui.font.get_multiline_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, wsize.x + 20, Ui.SIZE_SMALL).y
 	if locked:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.08, 0.08, 0.09, 0.45))
 		draw_string(Ui.font_bold, Vector2(0, h * 0.5), "PARC FERME · SETUP LOCKED FOR QUALIFYING", HORIZONTAL_ALIGNMENT_CENTER, w, Ui.SIZE_HEADING, Ui.YELLOW)
@@ -167,6 +168,8 @@ func _sockets() -> Dictionary:
 			for s: Variant in d[key]:
 				if s is Array:
 					rot.append(Vector2(s[0], s[1]))
+				elif s is Dictionary and (s as Dictionary).get("center") is Array:
+					rot.append(Vector2(s["center"][0], s["center"][1]))  # steering_wheel.json: {"id", "center": [x, y]}
 				elif s is Dictionary:
 					rot.append(Vector2(s.get("x", 0), s.get("y", 0)))
 	if rot.size() >= 2:

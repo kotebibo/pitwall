@@ -1,0 +1,32 @@
+{
+  "about": "Car livery colours players can pick (cosmetic only: never part of the physics). Shared by the server (validates saves) and the Godot client (swatches). Hex strings, lower case.",
+  "default": { "primary": "#e8352b", "secondary": "#f1efea" },
+  "primary": [
+    { "hex": "#e8352b", "name": "Pit Wall red" },
+    { "hex": "#8e1b2e", "name": "Burgundy" },
+    { "hex": "#ff7a1a", "name": "Papaya" },
+    { "hex": "#f2c230", "name": "Gold" },
+    { "hex": "#3ecf6a", "name": "Signal green" },
+    { "hex": "#1f6b45", "name": "Racing green" },
+    { "hex": "#4fa3f7", "name": "Sky blue" },
+    { "hex": "#2546c9", "name": "Royal blue" },
+    { "hex": "#7b3fe4", "name": "Violet" },
+    { "hex": "#e84a9a", "name": "Pink" },
+    { "hex": "#f1efea", "name": "Chalk white" },
+    { "hex": "#2b2d33", "name": "Carbon" }
+  ],
+  "secondary": [
+    { "hex": "#f1efea", "name": "Chalk white" },
+    { "hex": "#9aa0aa", "name": "Silver" },
+    { "hex": "#1d1f23", "name": "Black" },
+    { "hex": "#e8352b", "name": "Pit Wall red" },
+    { "hex": "#ff7a1a", "name": "Papaya" },
+    { "hex": "#f2c230", "name": "Gold" },
+    { "hex": "#3ecf6a", "name": "Signal green" },
+    { "hex": "#26b5b0", "name": "Teal" },
+    { "hex": "#4fa3f7", "name": "Sky blue" },
+    { "hex": "#1b2a4a", "name": "Navy" },
+    { "hex": "#a855f7", "name": "Purple" },
+    { "hex": "#e84a9a", "name": "Pink" }
+  ]
+}

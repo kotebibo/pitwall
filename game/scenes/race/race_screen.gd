@@ -13,6 +13,9 @@ var setup := {}
 var stats := {}
 var car_spec := {}
 var car_parts := {}
+## The player's livery (presentation only: never part of the race sim).
+var team_color := Ui.RED
+var team_secondary := Color("f1efea")
 
 var _info: Dictionary = {}
 var _race: RaceSim
@@ -159,7 +162,8 @@ func _choose_tyre() -> void:
 	var panel := _glass_panel()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(330, 0)
-	panel.position = Vector2(-165, -90)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	_overlay.add_child(panel)
 	var v := Ui.vbox(6)
 	panel.add_child(v)
@@ -234,10 +238,13 @@ func _start() -> void:
 		_colors.append(Color(String(c)))
 	while _colors.size() < _race.cars.size():
 		_colors.append(Ui.TEAM_COLORS[_colors.size() % Ui.TEAM_COLORS.size()])
+	_colors[0] = team_color
 	_next_tyre = _race.next_compound[0]
 	for i in _race.cars.size():
 		var v := CarView.new()
 		v.body = _colors[i]
+		if i == 0:
+			v.secondary = team_secondary
 		if i == 0 and not car_parts.is_empty():
 			v.parts = car_parts
 		v.z_index = 6 if i == 0 else 5

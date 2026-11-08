@@ -245,6 +245,47 @@ test("packs are earned once per rule and capped per player per week", () => {
   assert.throws(() => P.awardPack(player, "bought_it", "1"), /unknown pack reason/);
 });
 
+test("the signup pack is given once per player, outside the weekly limit for packs earned by driving", () => {
+  P.clock.now = () => at(BASE_WEEK + 3);
+  const player = newPlayer();
+  for (let day = 0; day < config.packsPerPlayerWeek; day++) assert.equal(P.awardPack(player, "first_quali", String(day)).awarded, true);
+  assert.equal(P.awardPack(player, "quali_top3", "x").why, "weekly pack limit reached");
+  const signup = P.awardPack(player, "signup", "account");
+  assert.equal(signup.awarded, true);
+  assert.equal(signup.pack!.reason, "signup");
+  assert.equal(P.awardPack(player, "signup", "account").why, "already earned");
+  const packs = P.garage(player).packs;
+  assert.equal(packs.unopened, config.packsPerPlayerWeek + 1);
+  assert.equal(packs.earnedThisWeek, config.packsPerPlayerWeek);
+  // a new player: the signup pack leaves the whole weekly limit for driving
+  const fresh = newPlayer();
+  P.awardPack(fresh, "signup", "account");
+  for (let day = 0; day < config.packsPerPlayerWeek; day++) assert.equal(P.awardPack(fresh, "first_quali", String(day)).awarded, true);
+});
+
+test("livery: palette colours only, the default until set, never part of the car spec", () => {
+  const { liveryPalette: pal } = P;
+  for (const list of [pal.primary, pal.secondary]) {
+    assert.ok(list.length >= 10);
+    for (const c of list) assert.match(c.hex, /^#[0-9a-f]{6}$/);
+    assert.equal(new Set(list.map((c) => c.hex)).size, list.length);
+  }
+  assert.ok(pal.primary.some((c) => c.hex === pal.default.primary));
+  assert.ok(pal.secondary.some((c) => c.hex === pal.default.secondary));
+
+  const player = newPlayer();
+  assert.deepEqual(P.garage(player).livery, pal.default);
+  const spec = P.carSpec(player);
+  assert.deepEqual(P.setLivery(player, "#FF7A1A", "1b2a4a"), { livery: { primary: "#ff7a1a", secondary: "#1b2a4a" } });
+  assert.deepEqual(P.garage(player).livery, { primary: "#ff7a1a", secondary: "#1b2a4a" });
+  assert.deepEqual(P.carSpec(player), spec);
+  assert.throws(() => P.setLivery(player, "#000000", "#1b2a4a"), /primary must be one of/);
+  assert.throws(() => P.setLivery(player, "#ff7a1a", "#8e1b2e"), /secondary must be one of/);
+  assert.throws(() => P.setLivery(player, undefined, 7), /primary/);
+  assert.throws(() => P.setLivery("not-a-player", "#ff7a1a", "#1b2a4a"), /bad player id/);
+  assert.deepEqual(P.garage(player).livery, { primary: "#ff7a1a", secondary: "#1b2a4a" });
+});
+
 test("opening a pack mints numbered parts, and the global weekly cap holds", () => {
   const week = BASE_WEEK + 10;
   P.clock.now = () => at(week);

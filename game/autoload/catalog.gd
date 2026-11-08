@@ -35,6 +35,8 @@ const STAT_HELP := {
 
 var data: Dictionary = {}
 var garage: Dictionary = {}
+## Livery colours players can pick (game/data/livery.json, shared with the server).
+var livery_palette: Dictionary = {"default": {"primary": "#e8352b", "secondary": "#f1efea"}, "primary": [], "secondary": []}
 
 
 func _ready() -> void:
@@ -43,6 +45,10 @@ func _ready() -> void:
 		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary:
 			data = parsed
+	if FileAccess.file_exists("res://data/livery.json"):
+		var pal: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/livery.json"))
+		if pal is Dictionary:
+			livery_palette = pal
 
 
 ## Finds a concept's entry whatever the catalogue's exact nesting.
@@ -115,6 +121,8 @@ func load_garage() -> bool:
 	var g: Variant = await Api.get_json("/api/garage?player=" + Profile.id)
 	if g is Dictionary:
 		garage = g
+		if (g as Dictionary).get("livery") is Dictionary:
+			cache_livery(g["livery"])
 		return true
 	return false
 
@@ -162,3 +170,39 @@ func car_look() -> Dictionary:
 func unopened_packs() -> int:
 	var p: Dictionary = garage.get("packs", {})
 	return int(p.get("unopened", 0))
+
+
+# ---- livery (cosmetic: colours are never passed to the sim) ----
+
+## [{"hex": "#rrggbb", "name": ...}] for "primary" (body) or "secondary" (accents, helmet).
+func livery_options(slot: String) -> Array:
+	var list: Variant = livery_palette.get(slot, [])
+	return list if list is Array else []
+
+
+func _in_palette(slot: String, hex: String) -> bool:
+	for o: Variant in livery_options(slot):
+		if o is Dictionary and String((o as Dictionary).get("hex", "")) == hex:
+			return true
+	return false
+
+
+## The player's colour for a slot: the cached livery if it is on the palette, else the default.
+func livery_hex(slot: String) -> String:
+	var hex := String(Profile.livery.get(slot, "")).to_lower()
+	if hex != "" and _in_palette(slot, hex):
+		return hex
+	return String((livery_palette.get("default", {}) as Dictionary).get(slot, "#e8352b" if slot == "primary" else "#f1efea"))
+
+
+func livery_color(slot: String) -> Color:
+	return Color(livery_hex(slot))
+
+
+## Keeps the server's livery on this device (Profile) so it also shows offline.
+func cache_livery(l: Dictionary) -> void:
+	var next := {"primary": String(l.get("primary", "")).to_lower(), "secondary": String(l.get("secondary", "")).to_lower()}
+	garage["livery"] = next
+	if next != Profile.livery:
+		Profile.livery = next
+		Profile.save()

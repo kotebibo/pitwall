@@ -5,7 +5,7 @@ extends Control
 
 signal done
 
-const TABS: Array[String] = ["PARTS", "TUNING", "PACKS"]
+const TABS: Array[String] = ["PARTS", "TUNING", "PACKS", "LIVERY"]
 const SLOT_SIZE := Vector2(132, 38)
 
 var _tab := 0
@@ -29,6 +29,7 @@ var _spec_box: VBoxContainer
 var _status: Label
 var _packs_page: Control
 var _parts_panel: Control
+var _livery: LiveryPanel
 
 
 func _ready() -> void:
@@ -39,7 +40,9 @@ func _ready() -> void:
 	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	body.offset_top = 34
 	add_child(body)
-	_pages = [_parts_page(), _tuning_page(), _make_packs_page()]
+	_livery = LiveryPanel.new()
+	_livery.saved.connect(_refresh_all)
+	_pages = [_parts_page(), _tuning_page(), _make_packs_page(), _livery]
 	for p in _pages:
 		body.add_child(p)
 	_status = Ui.label("", Ui.SIZE_SMALL, Ui.INK_2)
@@ -106,6 +109,7 @@ func _top_bar() -> void:
 		"Fit parts to the car. Every part changes how it drives and how it looks.",
 		"Set up the car: wing flap angles, brake bias and differential.",
 		"Development packs: three unique parts each, earned by driving.",
+		"Paint the car: pick its body and accent colours.",
 	]
 	for i in TABS.size():
 		var b := Ui.button(TABS[i])
@@ -137,7 +141,8 @@ func _parts_page() -> Control:
 	var page := Control.new()
 	page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_preview = CarPreview.new()
-	_preview.color = Ui.RED
+	_preview.color = Catalog.livery_color("primary")
+	_preview.secondary = Catalog.livery_color("secondary")
 	_preview.look = Catalog.car_look()
 	_preview.anchor_right = 0.64
 	_preview.anchor_bottom = 0.78
@@ -256,9 +261,13 @@ func _slot(area: String) -> Control:
 	b.add_child(a)
 	var n := Ui.label("", Ui.SIZE_SMALL, Ui.INK, true)
 	n.name = "PartName"
-	n.position = Vector2(38, 18)
-	n.size = Vector2(72, 14)
+	# the rest of the slot's width; a name longer than that ends in "…"
+	n.anchor_right = 1.0
+	n.offset_left = 38
+	n.offset_top = 18
+	n.offset_right = -4
 	n.clip_text = true
+	n.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(n)
 	return b
@@ -651,6 +660,9 @@ func _start_tour() -> void:
 
 
 func _refresh_all() -> void:
+	_preview.color = Catalog.livery_color("primary")
+	_preview.secondary = Catalog.livery_color("secondary")
+	_livery.reset()
 	_preview.look = Catalog.car_look()
 	_preview.rebuild()
 	_refresh_slots()

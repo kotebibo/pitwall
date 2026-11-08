@@ -24,6 +24,7 @@ const SIZE_TITLE := 32
 var theme: Theme
 var font: FontFile
 var font_bold: FontVariation
+var _toasts: VBoxContainer
 
 
 func _ready() -> void:
@@ -204,3 +205,37 @@ func format_time(ms: int) -> String:
 
 func short_hash(h: String) -> String:
 	return h.substr(0, 8) + "…" + h.substr(h.length() - 8) if h.length() > 20 else h
+
+
+## A short notice at the top of the screen, over every screen (it survives
+## screen changes), e.g. a reward. Fades out after `seconds`.
+func toast(text: String, color: Color = YELLOW, seconds: float = 4.5) -> void:
+	if _toasts == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 90
+		add_child(layer)
+		_toasts = VBoxContainer.new()
+		_toasts.theme = theme
+		_toasts.add_theme_constant_override("separation", 4)
+		_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_toasts.anchor_left = 0.5
+		_toasts.anchor_right = 0.5
+		_toasts.offset_top = 10
+		_toasts.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		layer.add_child(_toasts)
+	var p := PanelContainer.new()
+	var sb := _box(Color(0.07, 0.075, 0.09, 0.97), color, 1, 6)
+	sb.border_width_left = 3
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	p.add_theme_stylebox_override("panel", sb)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	p.add_child(label(text, SIZE_BODY, color, true))
+	p.modulate.a = 0.0
+	_toasts.add_child(p)
+	var t := p.create_tween()
+	t.tween_property(p, "modulate:a", 1.0, 0.2)
+	t.tween_interval(seconds)
+	t.tween_property(p, "modulate:a", 0.0, 0.5)
+	t.tween_callback(p.queue_free)
