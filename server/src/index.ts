@@ -21,6 +21,7 @@ import { clientIp, limits, takeChainRace } from "./ratelimit.ts";
 import { bootstrap, getRace, startRace, validateSetup, verifyRace } from "./races.ts";
 import * as stats from "./stats.ts";
 import * as passes from "./passes.ts";
+import { rankedInfo } from "./ranked.ts";
 
 const WEB_DIR = process.env.WEB_DIR ?? new URL("../../build/web/", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
 const MIME: Record<string, string> = {
@@ -145,6 +146,12 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
     /** An owned player id needs its account's token (401 otherwise); a guest id needs none. */
     const authorize = (player: string) => accounts.requireOwner(req, player);
 
+    if (req.method === "GET" && resource === "ranked" && !id) {
+      // free daily time trial in the standard car (guests too)
+      const player = String(url.searchParams.get("player") ?? "");
+      if (player) authorize(player);
+      return json(res, 200, rankedInfo(player));
+    }
     if (resource === "passes") {
       // race passes: staked daily/weekly time trials on equal cars, paid out on-chain
       const accountOf = (player: string) => {
