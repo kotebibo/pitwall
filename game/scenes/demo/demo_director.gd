@@ -43,13 +43,15 @@ func _ready() -> void:
 	_cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cursor.draw.connect(_draw_cursor)
 	add_child(_cursor)
-	_cursor.visible = shot in ["hub", "garage", "tuning", "passes"]
+	_cursor.visible = shot in ["hub", "garage", "garage3", "livery", "tuning", "passes"]
 	_set_pos(_pos)
 	match shot:
 		"hub": _hub()
 		"garage": _garage()
 		"tuning": _tuning()
 		"passes": _passes()
+		"garage3": _garage3()
+		"livery": _livery()
 
 
 # ---- cursor and events ----
@@ -260,6 +262,109 @@ func _garage() -> void:
 			await click()
 			await wait(2.2)
 	await _tune()
+
+
+## Garage, second take: open a pack, read what a part does, test-drive it, fit it.
+func _garage3() -> void:
+	await wait(1.0)
+	await move("GARAGE", 0.6)
+	await click()
+	await wait(1.4)
+	await move("PACKS", 0.6)
+	await click()
+	await wait(1.0)
+	var open := find_text("OPEN PACK")
+	if open:
+		await move(open, 0.6)
+		await wait(0.2)
+		await click()
+		await wait(3.6)
+		var pack := find_class("PackOpening")
+		if pack:
+			for card: Variant in pack.get("_cards"):
+				await move(card, 0.45)
+				await click()
+				await wait(1.0)
+			await wait(1.0)
+			await move("ADD TO GARAGE", 0.5)
+			await wait(0.3)
+			await click()
+			await wait(1.4)
+	var garage := find_class("GarageScreen")
+	if garage == null:
+		return
+	# the area with the most parts to compare
+	var best := "rear_wing"
+	var most := 0
+	for area: String in ["front_wing", "rear_wing", "sidepods", "floor"]:
+		var n := Catalog.inventory().filter(func(x: Dictionary) -> bool: return String(x.get("area", "")) == area).size()
+		if n > most:
+			most = n
+			best = area
+	var slots: Dictionary = garage.get("_slots")
+	await move(slots[best], 0.6)
+	await wait(0.2)
+	await click()
+	await wait(1.0)
+	var rows: Array = (garage.get("_list") as Node).get_children()
+	for row: Variant in rows:
+		if row is Control:
+			await move(row, 0.4)
+			await wait(1.2)
+	var pick: Variant = rows[rows.size() - 1] if rows.size() > 0 else null
+	if pick is Control:
+		await move(pick, 0.3)
+		await click()
+		await wait(1.0)
+	await move("TEST DRIVE", 0.5)
+	await wait(0.2)
+	await click()
+	for i in 40:  # wait for the test-drive result
+		await wait(0.25)
+		if find_text("A LAP") != null:
+			break
+	await wait(3.2)
+	await move("CLOSE", 0.5)
+	await click()
+	await wait(0.6)
+	await move("FIT PART", 0.5)
+	await wait(0.2)
+	await click()
+	await wait(2.0)
+
+
+## Livery: repaint the car and save it.
+func _livery() -> void:
+	await wait(0.8)
+	await move("GARAGE", 0.6)
+	await click()
+	await wait(1.2)
+	await move("LIVERY", 0.6)
+	await click()
+	await wait(1.0)
+	var panel := find_class("LiveryPanel")
+	if panel == null:
+		return
+	var swatches: Array[Button] = []
+	_collect_swatches(panel, swatches)
+	var picks := [2, 5, 8, 14]  # a few primaries, then a secondary
+	for i in picks:
+		if i < swatches.size():
+			await move(swatches[i], 0.4)
+			await click()
+			await wait(0.8)
+	var save := find_text("SAVE LIVERY")
+	if save:
+		await move(save, 0.5)
+		await click()
+		await wait(1.6)
+
+
+func _collect_swatches(n: Node, out: Array[Button]) -> void:
+	for c in n.get_children():
+		if c is Button and (c as Button).text == "" and (c as Button).is_visible_in_tree():
+			out.append(c)
+		_collect_swatches(c, out)
 
 
 ## Race passes: the pools, your pool's standings, a pool that has paid out.
