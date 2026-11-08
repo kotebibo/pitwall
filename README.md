@@ -2,9 +2,11 @@
 
 ![Pit Wall](brand/social/og_image_1200x630.png)
 
-**An F1 team game where you also drive the car.** Fit parts you earn on track, tune the setup, then
-qualify and race. Every lap you drive is re-driven by the server from your inputs, with the same
-physics, and recorded on Solana. A time on the timesheet is a time someone actually drove.
+**An F1 team game where you also drive the car, and where driving well pays.** Fit parts you earn on
+track, tune the setup, then qualify and race. Every lap you drive is re-driven by the server from
+your inputs, with the same physics, and recorded on Solana. A time on the timesheet is a time someone
+actually drove. Buy a race pass, race everyone on equal cars, and the fastest drivers split the pot,
+paid out by the on-chain program.
 
 **Play it free in your browser: [pitwall-game.fly.dev](https://pitwall-game.fly.dev)** (keyboard or controller, no wallet needed)
 
@@ -29,9 +31,22 @@ physics, and recorded on Solana. A time on the timesheet is a time someone actua
   - Drive into the pit lane under the 80 km/h limiter and stop in your box.
   - Your crew's skill decides how long you are stopped.
   - The whole race is re-driven on the server and the result is settled on Solana.
+- **Race passes:** stake a pass from your wallet for a daily or weekly event (three stake tiers).
+  - Everyone drives the same standard car, so only driving counts.
+  - Your best verified lap in the event counts.
+  - When the event closes, the Pit Wall program pays the top 20% from the pot. Each paid place
+    gets at least 1.5x its stake, and Pit Wall keeps 10%.
+  - With fewer than four entrants, everyone is refunded.
+  - The program refuses to close a pool unless players received exactly the rest.
+  - On devnet the stakes are devnet SOL; on mainnet they would be USDC.
 - **Garage:** six part areas (front wing, rear wing, sidepods, floor, suspension, power unit).
-  - Parts are unique cards with real engineering concepts, rolled stats and traits.
+  - Parts are unique cards with real engineering concepts, rolled stats, traits and a weight.
   - Each part changes how the car drives and how it looks, on the 3D car and on track.
+  - The garage shows what a part does in real units, from the physics itself: top speed,
+    cornering, braking distance, 0-200 and weight, in one plain sentence.
+  - TEST DRIVE laps the circuit with and without the part and shows where it gains or loses time.
+  - Parts wear out: their effect fades near the end of their life, and they retire.
+  - Scrapping a part gives R&D credits. These sinks keep the parts market from flooding.
   - Tune wing flaps, brake bias and differential on the steering wheel.
 - **Development packs:** three parts each. You earn them by driving (your first qualifying lap of
   the day, a top-3 qualifying time, every race you finish). They are never sold, and each week has a
@@ -55,7 +70,8 @@ physics, and recorded on Solana. A time on the timesheet is a time someone actua
   `FRMukL3ubSZcGHxAFjK1ywSqfY3bWod2ro1ySoULwH4r`. It stores:
   - each player's best lap per event (time, input hash, physics version);
   - races, with the seed committed before the start and revealed after, plus entries and results;
-  - drivers' experience.
+  - drivers' experience;
+  - race-pass pools: stakes in, payouts by placing, Pit Wall's capped share out.
 
   A lap record costs a 0.000005 SOL fee.
 
