@@ -11,7 +11,7 @@ import { config } from "./config.ts";
 import { PLAYER_DRIVER, RIVALS } from "./content.ts";
 import { addDistance, awardPack, carSpec, fittedPartIds, setEquipLockCheck, zeroSpec, type Spec } from "./parts.ts";
 import { hasOpenPass, recordPassLap } from "./passes.ts";
-import { recordRanked } from "./ranked.ts";
+import { rankedRun, resolveRankedRace, saveRankedRun, startRankedRace, sweepRanked, type RankedResult } from "./ranked.ts";
 import { redrive } from "./redrive.ts";
 
 export const CIRCUIT = { id: "mtkvari", name: "Mtkvari Circuit", index: 0 };
@@ -68,6 +68,13 @@ interface EventState {
   eventId: number;
   players: Record<string, PlayerBest>;
   attempts: Record<string, Attempt>;
+}
+
+type RunResult = { physicsVersion: number; ticks: number; laps: Lap[]; inputHash: string; metres?: number };
+let redriveRun: (job: object) => Promise<RunResult> = (job) => redrive<RunResult>(job);
+/** Replaces the Godot re-drive (tests); undefined goes back to the live one. */
+export function setRedrive(fn: ((job: object) => Promise<RunResult>) | undefined) {
+  redriveRun = fn ?? ((job) => redrive<RunResult>(job));
 }
 
 const dir = join(config.dataDir, "quali");
@@ -172,6 +179,8 @@ export async function startAttempt(player: string, name: string, session: string
   }
   s.attempts[id] = { id, player, session: kind, seed, setup, stats, car, parts: fittedPartIds(player), createdAt: Date.now() };
   save(s);
+  // A ranked attempt is a ranked race: its opponents are fixed now (an earlier race left open is a forfeit)
+  if (kind === "ranked") return { attempt: id, seed, setup, stats, car, eventId: s.eventId, rankedMatch: startRankedRace(player, p.name, id) };
   return { attempt: id, seed, setup, stats, car, eventId: s.eventId };
 }
 
@@ -179,9 +188,15 @@ export async function submitRun(attemptId: string, inputs: string) {
   const s = load(currentEventId());
   const a = s.attempts[attemptId];
   if (!a) throw new Error("unknown attempt");
-  if (Date.now() - a.createdAt > ATTEMPT_TTL_MS) throw new Error("attempt expired");
+  // A ranked race is resolved once: the run that resolved it is the answer from then on
+  const storedRun = a.session === "ranked" ? rankedRun(a.id) : undefined;
+  if (storedRun) return storedRun as never;
+  if (Date.now() - a.createdAt > ATTEMPT_TTL_MS) {
+    if (a.session === "ranked") sweepRanked(); // its race is (about to be) a forfeit
+    throw new Error("attempt expired");
+  }
   if (typeof inputs !== "string" || inputs.length > 2_000_000) throw new Error("bad inputs");
-  const result = await redrive<{ physicsVersion: number; ticks: number; laps: Lap[]; inputHash: string; metres?: number }>({ track: CIRCUIT.id, setup: a.setup, stats: a.stats, car: a.car ?? zeroSpec(), seed: a.seed, inputs, kind: a.session === "pass" || a.session === "pass_open" || a.session === "ranked" ? "qualifying" : a.session });
+  const result = await redriveRun({ track: CIRCUIT.id, setup: a.setup, stats: a.stats, car: a.car ?? zeroSpec(), seed: a.seed, inputs, kind: a.session === "pass" || a.session === "pass_open" || a.session === "ranked" ? "qualifying" : a.session });
   // A run must have been driven in real time: no more ticks than seconds since the seed was issued
   const elapsedTicks = ((Date.now() - a.createdAt) / 1000 + 3) * TICKS_PER_SECOND;
   if (config.realtimeCheck && result.ticks > elapsedTicks) throw new Error("run is longer than the time since it started");
@@ -190,7 +205,10 @@ export async function submitRun(attemptId: string, inputs: string) {
   const best = valid.sort((x, y) => x.us - y.us)[0];
   const p = s.players[a.player];
   let personalBest = false;
-  if (best && (!a.best || best.us < a.best.us)) a.best = best;
+  if (a.session === "ranked") {
+    // ranked: the first completed lap is the race lap (and the ghost others chase)
+    if (!a.best && result.laps[0]?.valid) a.best = result.laps[0];
+  } else if (best && (!a.best || best.us < a.best.us)) a.best = best;
   // Verified qualifying distance wears the parts that drove it (practice is not verified, so it does not count)
   let kmDriven = 0;
   if (a.session === "qualifying" || a.session === "pass_open") {  // your own parts wear
@@ -210,10 +228,14 @@ export async function submitRun(attemptId: string, inputs: string) {
       recordOnChain(s, a.player, p, result.physicsVersion);
     }
   }
-  let ranked: ReturnType<typeof recordRanked> | null = null;
-  if (best && a.session === "ranked") {
-    ranked = recordRanked(a.player, displayName(a.player, p?.name ?? ""), { us: best.us, attempt: a.id });
-    writeFileSync(join(dir, "inputs", `${a.id}.txt`), inputs);  // ghost for others to chase
+  let ranked: RankedResult | null = null;
+  if (a.session === "ranked") {
+    // one ranked race per attempt, decided by its FIRST completed lap: deleted or missing is a forfeit
+    const first = result.laps[0];
+    ranked = resolveRankedRace(a.player, a.id, first ? { us: first.us, valid: first.valid } : null);
+    if (first?.valid && ranked && !ranked.forfeit && ranked.us === first.us && !existsSync(join(dir, "inputs", `${a.id}.txt`))) {
+      writeFileSync(join(dir, "inputs", `${a.id}.txt`), inputs);  // ghost for others to chase
+    }
   }
   let pass: ReturnType<typeof recordPassLap> = [];
   if (best && (a.session === "pass" || a.session === "pass_open")) {
@@ -233,7 +255,7 @@ export async function submitRun(attemptId: string, inputs: string) {
       if (top.pack) packsEarned.push(top.pack);
     }
   }
-  return {
+  const response = {
     verified: true,
     physicsVersion: result.physicsVersion,
     laps: result.laps,
@@ -245,6 +267,8 @@ export async function submitRun(attemptId: string, inputs: string) {
     ranked,
     kmDriven,
   };
+  if (a.session === "ranked" && ranked) saveRankedRun(a.id, response);
+  return response;
 }
 
 function recordOnChain(s: EventState, player: string, p: PlayerBest, physicsVersion: number) {

@@ -147,7 +147,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
     const authorize = (player: string) => accounts.requireOwner(req, player);
 
     if (req.method === "GET" && resource === "ranked" && !id) {
-      // free daily time trial in the standard car (guests too)
+      // the ranked ladder and the daily medal board, standard car (guests too)
       const player = String(url.searchParams.get("player") ?? "");
       if (player) authorize(player);
       return json(res, 200, rankedInfo(player));

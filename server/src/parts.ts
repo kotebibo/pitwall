@@ -59,6 +59,14 @@ export interface SynergyDef {
   when: { sameFamily?: string[]; concepts?: Record<string, string> };
   delta: Partial<Spec>;
 }
+/** A way to earn packs. `odds` (rarity -> weight) replaces the rarity weights for its packs; `medal` marks ranked medal packs. */
+export interface EarnRule {
+  name: string;
+  packs: number;
+  per: string;
+  odds?: Record<string, number>;
+  medal?: "bronze" | "silver" | "gold";
+}
 export interface Catalog {
   version: number;
   specKeys: Record<SpecKey, { unit: string; label: string; description: string; physicsClamp: Range }>;
@@ -70,7 +78,7 @@ export interface Catalog {
   areas: Record<string, AreaDef>;
   traits: Record<string, TraitDef>;
   synergies: SynergyDef[];
-  packs: { partsPerPack: number; maxSameArea: number; earn: Record<string, { name: string; packs: number; per: string }> };
+  packs: { partsPerPack: number; maxSameArea: number; earn: Record<string, EarnRule> };
 }
 
 export const catalogPath = config.partsCatalog || join(config.gameDir, "data", "parts.json");
@@ -224,12 +232,21 @@ export function rollStats(rng: Rng, def: ConceptDef, traits: string[], target: n
   return { stats: addSpec(base, delta), error: err };
 }
 
-/** The three parts in a pack. Reproducible from the pack id and the season's seed secret. */
-export function rollPack(packId: string, secret = config.seedSecret): PartRoll[] {
+/** Rarity weights for a pack: the earn rule's odds when it has them, otherwise the catalogue's rarity weights. */
+export function packOdds(reason?: string): [string, number][] {
+  const odds = reason ? catalog.packs.earn[reason]?.odds : undefined;
+  return Object.entries(catalog.rarities)
+    .map(([id, r]) => [id, odds ? Math.max(0, Math.round(odds[id] ?? 0)) : r.weight] as [string, number])
+    .filter(([id, w]) => w > 0 && id !== "starter");
+}
+
+/**
+ * The three parts in a pack. Reproducible from the pack id and the season's seed secret
+ * (and the rarity weights: `odds`, from the pack's earn rule; the catalogue's weights by default).
+ */
+export function rollPack(packId: string, secret = config.seedSecret, odds?: [string, number][]): PartRoll[] {
   const rng = new Rng(createHmac("sha256", secret).update(`pack:${packId}`).digest());
-  const rarities = Object.entries(catalog.rarities)
-    .filter(([, r]) => r.weight > 0)
-    .map(([id, r]) => [id, r.weight] as [string, number]);
+  const rarities = odds?.length ? odds : packOdds();
   const out: PartRoll[] = [];
   for (let i = 0; i < catalog.packs.partsPerPack; i++) {
     const room = AREAS.filter((a) => out.filter((p) => p.area === a).length < catalog.packs.maxSameArea);
@@ -569,7 +586,10 @@ export function partView(part: Part, equipped = false) {
 /** A once-per-account bonus pack (signup): outside the weekly limit, which is for packs earned by driving. */
 const isBonusPack = (reason: string) => catalog.packs.earn[reason]?.per === "account";
 
-const packView = (p: Pack) => ({ id: p.id, reason: p.reason, reasonName: catalog.packs.earn[p.reason]?.name ?? p.reason, earnedAt: p.earnedAt, openedAt: p.openedAt ?? null });
+const packView = (p: Pack) => {
+  const medal = catalog.packs.earn[p.reason]?.medal;
+  return { id: p.id, reason: p.reason, reasonName: catalog.packs.earn[p.reason]?.name ?? p.reason, earnedAt: p.earnedAt, openedAt: p.openedAt ?? null, ...(medal ? { medal } : {}) };
+};
 
 function packSummary(p: PlayerParts) {
   const week = weekOf(clock.now());
@@ -717,7 +737,7 @@ export function openPack(player: string, packId?: string) {
       week: weekLabel(week),
     });
   }
-  const parts: Part[] = rollPack(pack.id).map((r, i) => {
+  const parts: Part[] = rollPack(pack.id, config.seedSecret, packOdds(pack.reason)).map((r, i) => {
     s.minted += 1;
     const part: Part = {
       id: createHash("sha256").update(`part:${pack.id}:${i}`).digest("hex").slice(0, 16),

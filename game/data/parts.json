@@ -276,7 +276,10 @@
       "signup": { "name": "Free pack for creating an account", "packs": 1, "per": "account" },
       "first_quali": { "name": "First qualifying lap of the day", "packs": 1, "per": "day" },
       "quali_top3": { "name": "Top 3 in qualifying", "packs": 1, "per": "day" },
-      "race_finish": { "name": "Race finish", "packs": 1, "per": "race" }
+      "race_finish": { "name": "Race finish", "packs": 1, "per": "race" },
+      "ranked_bronze": { "name": "Bronze medal pack", "packs": 1, "per": "day", "medal": "bronze", "odds": { "common": 70, "rare": 22, "epic": 7, "legendary": 1 } },
+      "ranked_silver": { "name": "Silver medal pack", "packs": 1, "per": "day", "medal": "silver", "odds": { "common": 52, "rare": 32, "epic": 13, "legendary": 3 } },
+      "ranked_gold": { "name": "Gold medal pack", "packs": 1, "per": "day", "medal": "gold", "odds": { "common": 35, "rare": 37, "epic": 21, "legendary": 7 } }
     }
   }
 }
