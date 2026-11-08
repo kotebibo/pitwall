@@ -377,16 +377,13 @@ func _pick(p: Dictionary) -> void:
 		var v := int(stats.get(k, 0))
 		if v != 0:
 			bits.append("%s %s" % [Catalog.STAT_NAMES.get(k, k.to_upper()), Catalog.format_stat(k, v)])
-	_detail.tooltip_text = ("The part's own numbers (against the standard part):
-" + "
-".join(bits)) if not bits.is_empty() else ""
+	_detail.tooltip_text = ("The part's own numbers (against the standard part):\n" + "\n".join(bits)) if not bits.is_empty() else ""
 	var traits: Array = p.get("traits", [])
 	if display.get("traits") is Array:
 		traits = display["traits"]
 	if not traits.is_empty():
 		var names := traits.map(func(t: Variant) -> String: return String(t.get("name", t.get("id", ""))) if t is Dictionary else String(t))
-		more += "[color=#f2c230]%s[/color]
-" % "  ·  ".join(names)
+		more += "[color=#f2c230]%s[/color]\n" % "  ·  ".join(names)
 	if rarity == "starter":
 		more += "[color=#6e6f78]Starter part: it never wears out.[/color]"
 	elif p.has("km"):
@@ -395,11 +392,9 @@ func _pick(p: Dictionary) -> void:
 		var effect := int(display.get("effect", 1000))
 		more += "[color=#a3a3ad]%s km driven · %s km left[/color] [color=#6e6f78]· %d races · %d wins[/color]" % [_km(km), _km(left), int(p.get("races", 0)), int(p.get("wins", 0))]
 		if retired:
-			more += "
-[color=#e8352b]RETIRED: worn out. Scrap it for R&D credits.[/color]"
+			more += "\n[color=#e8352b]RETIRED: worn out. Scrap it for R&D credits.[/color]"
 		elif effect < 1000:
-			more += "
-[color=#f2c230]WORN: %d%% effect[/color] [color=#6e6f78]its changes fade as it wears[/color]" % roundi(effect / 10.0)
+			more += "\n[color=#f2c230]WORN: %d%% effect[/color] [color=#6e6f78]its changes fade as it wears[/color]" % roundi(effect / 10.0)
 	_detail_more.text = more
 	var is_fitted: bool = String(p.get("id", "")) == Catalog.equipped_id(area) or (p.get("rarity") == "starter" and Catalog.equipped_id(area) == "")
 	_fit.disabled = is_fitted or not p.has("id") or retired
