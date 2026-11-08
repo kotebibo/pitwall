@@ -1,8 +1,11 @@
 class_name RankEmblem
 extends Control
-## A ranked tier emblem: the pixel-art sprite from assets/sprites/ranked when it is there,
-## else a pixel shield drawn in code in the tier colour. The division numeral (IV..I) sits
-## in the plain centre. Any square size: 64 on the RANKED tab and the result, 16 in lists.
+## A ranked tier emblem: the pixel-art sprite from assets/sprites/ranked when it is there
+## (emblem_<tier>.png, 64 px; badge_<tier>.png, 32 px, for lists), else a pixel shield drawn in
+## code in the tier colour. The division numeral (IV..I) sits in the emblem's plain centre;
+## badges are too small for it, so lists print the tier beside them.
+## Sizes are in UI units (640x360 canvas): 64 = the 64 px emblem at 2x on 1280x720, 16 = the
+## 32 px badge at 1x.
 
 const TIERS: Array[String] = ["IRON", "BRONZE", "SILVER", "GOLD", "PLATINUM", "EMERALD", "DIAMOND", "MASTER", "GRANDMASTER", "CHALLENGER"]
 const COLORS := {
@@ -61,20 +64,26 @@ func _ready() -> void:
 func _draw() -> void:
 	var s := minf(size.x, size.y)
 	var origin := (size - Vector2(s, s)) / 2
-	var tex := PartCard.texture("res://assets/sprites/ranked/emblem_%s.png" % tier.to_lower())
 	if s < 24.0:
-		_draw_small(origin, s / 8.0)
+		var badge := PartCard.texture("res://assets/sprites/ranked/badge_%s.png" % tier.to_lower())
+		if badge:
+			draw_texture_rect(badge, Rect2(origin, Vector2(s, s)), false)
+		else:
+			_draw_small(origin, s / 8.0)
 		return
+	var tex := PartCard.texture("res://assets/sprites/ranked/emblem_%s.png" % tier.to_lower())
 	if tex:
 		draw_texture_rect(tex, Rect2(origin, Vector2(s, s)), false)
 	else:
 		_draw_shield(origin, s / 16.0)
 	if numeral and division != "" and TIERS.find(tier) < 7 and tier != "UNRANKED":
-		var fs := maxi(8, roundi(s * 0.26))
+		# inside the art's safe box (22, 24, 20 x 17 of 64), ink with a 1 px dark drop shadow
+		var fs := maxi(8, roundi(s * 0.22))
 		var font := Ui.font_bold
 		var w := font.get_string_size(division, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var p := origin + Vector2(s / 2 - w / 2, s * 0.47 + fs * 0.36)
-		draw_string(font, p + Vector2(0, maxf(1, s / 32)), division, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, 0.6))
+		var p := origin + Vector2(s / 2 - w / 2, s * 0.5 + fs * 0.36)
+		var px := maxf(1.0, s / 64.0)
+		draw_string(font, p + Vector2(px, px), division, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("08090b"))
 		draw_string(font, p, division, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Ui.INK)
 	elif numeral and tier == "UNRANKED" and s >= 32:
 		var fs := roundi(s * 0.3)

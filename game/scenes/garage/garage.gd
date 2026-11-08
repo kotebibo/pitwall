@@ -656,7 +656,7 @@ func _load() -> void:
 	elif not ok:
 		_status.text = "Offline: parts and packs need the server. Tuning still works."
 	_refresh_all()
-	if not Profile.garage_tour_done:
+	if not Profile.garage_tour_done and not RankedMock.enabled():  # (debug mock runs: no tour, for screenshots)
 		await get_tree().create_timer(0.4).timeout
 		_start_tour()
 
@@ -700,3 +700,5 @@ func _refresh_all() -> void:
 	_refresh_spec()
 	_tuning.refresh()  # the fitted parts change what a setup does
 	_tab_buttons[2].text = "PACKS (%d)" % Catalog.unopened_packs() if Catalog.unopened_packs() > 0 else "PACKS"
+	if _tab == 2:
+		_refresh_packs()  # the page drawn before the garage loaded

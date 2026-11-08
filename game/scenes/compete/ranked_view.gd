@@ -1,8 +1,8 @@
 class_name RankedView
 extends Control
 ## The RANKED tab of the COMPETE screen, from GET /api/ranked: your rank (emblem, RP bar,
-## placements, recent results) on the left; today's medals, the daily board or the ladder,
-## the rules and the RANKED RACE button on the right.
+## placements, recent results), today's medals and the rules on the left; the daily board or
+## the ladder and the RANKED RACE button on the right.
 
 signal race
 
@@ -15,6 +15,7 @@ var _info: Dictionary = {}
 var _left: VBoxContainer
 var _right: VBoxContainer
 var _status: Label
+var _show_ladder := false
 
 
 func _ready() -> void:
@@ -80,7 +81,8 @@ func _render() -> void:
 	_clear(_left)
 	_clear(_right)
 	_render_rank()
-	_render_day()
+	_render_medals()
+	_render_lists()
 
 
 static func _rp_text(v: int) -> String:
@@ -154,16 +156,6 @@ func _render_rank() -> void:
 			chips.add_child(_result_chip(r as Dictionary))
 		_left.add_child(chips)
 
-	# the ladder: top 10 with tier badges
-	_left.add_child(Ui.label("LADDER  ·  TOP 10", Ui.SIZE_SMALL, Ui.INK_2, true))
-	var ladder: Array = _info.get("ladder", []) if _info.get("ladder") is Array else []
-	if ladder.is_empty():
-		_left.add_child(Ui.label("Nobody is ranked yet.", Ui.SIZE_SMALL, Ui.INK_3))
-	var lv := Ui.vbox(0)
-	for r: Variant in ladder.slice(0, 10):
-		lv.add_child(_ladder_row(r as Dictionary))
-	_left.add_child(lv)
-
 
 func _season_text(season: Dictionary) -> String:
 	var name := String(season.get("name", "SEASON"))
@@ -218,7 +210,7 @@ func _ladder_row(r: Dictionary) -> Control:
 	n.custom_minimum_size = Vector2(14, 0)
 	row.add_child(n)
 	var tier := String(r.get("tier", ""))
-	row.add_child(RankEmblem.make(tier, r.get("division"), 10, false))
+	row.add_child(RankEmblem.make(tier, r.get("division"), 16, false))
 	var name := Ui.label(String(r.get("name", "")).to_upper(), Ui.SIZE_SMALL, Ui.RED if me else Ui.INK)
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name.clip_text = true
@@ -234,9 +226,9 @@ func _ladder_row(r: Dictionary) -> Control:
 	return row
 
 
-# ---- right: today ----
+# ---- left, under your rank: today's medals ----
 
-func _render_day() -> void:
+func _render_medals() -> void:
 	var daily: Dictionary = _info.get("daily", {}) if _info.get("daily") is Dictionary else {}
 	var medals: Dictionary = daily.get("medals", {}) if daily.get("medals") is Dictionary else {}
 	var head := Ui.hbox(6)
@@ -246,11 +238,11 @@ func _render_day() -> void:
 	cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	head.add_child(cl)
-	_right.add_child(head)
-	var row := Ui.hbox(4)
+	_left.add_child(head)
+	var row := Ui.hbox(3)
 	for m: String in ["gold", "silver", "bronze"]:
 		row.add_child(_medal_chip(m, int(float(medals.get(m, 0)))))
-	_right.add_child(row)
+	_left.add_child(row)
 	var dy: Variant = daily.get("you")
 	if dy is Dictionary:
 		var d: Dictionary = dy
@@ -259,27 +251,67 @@ func _render_day() -> void:
 		line.add_child(Ui.label("YOUR BEST", Ui.SIZE_SMALL, Ui.INK_2, true))
 		line.add_child(Ui.label(Ui.format_time(int(float(d.get("us", 0))) / 1000), Ui.SIZE_SMALL, Ui.INK, true))
 		line.add_child(Ui.label(("·  %s MEDAL" % medal.to_upper()) if medal != "" else "·  NO MEDAL YET", Ui.SIZE_SMALL, RankEmblem.medal_color(medal) if medal != "" else Ui.INK_3, true))
-		line.add_child(Ui.label("·  P%d TODAY" % int(d.get("rank", 0)), Ui.SIZE_SMALL, Ui.INK_2))
-		_right.add_child(line)
+		_left.add_child(line)
+		var drivers := int(daily.get("drivers", 0))
+		var laps := int(d.get("laps", 0))
+		_left.add_child(Ui.label("P%d TODAY" % int(d.get("rank", 0)) + (" OF %d" % drivers if drivers > 0 else "") + ("  ·  %d LAP%s" % [laps, "" if laps == 1 else "S"] if laps > 0 else ""), Ui.SIZE_SMALL, Ui.INK_2))
 	else:
-		_right.add_child(Ui.label("No ranked lap today. Your best lap of the day earns its medal pack.", Ui.SIZE_SMALL, Ui.INK_3))
+		var none := Ui.label("No ranked lap today. Your best lap of the day earns its medal pack.", Ui.SIZE_SMALL, Ui.INK_3)
+		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		none.custom_minimum_size = Vector2(220, 0)
+		_left.add_child(none)
 
-	# the daily board (the ladder is on the left)
-	_right.add_child(Ui.label("TODAY  ·  TOP 10", Ui.SIZE_SMALL, Ui.INK_2, true))
+
+# ---- right: the daily board or the ladder, RANKED RACE ----
+
+func _render_lists() -> void:
+	var daily: Dictionary = _info.get("daily", {}) if _info.get("daily") is Dictionary else {}
+	var tabs := Ui.hbox(4)
+	var today := Ui.button("TODAY  ·  TOP 10")
+	var ladder := Ui.button("LADDER  ·  TOP 10")
+	for b: Button in [today, ladder]:
+		b.toggle_mode = true
+		b.add_theme_font_size_override("font_size", Ui.SIZE_SMALL)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	today.set_pressed_no_signal(not _show_ladder)
+	ladder.set_pressed_no_signal(_show_ladder)
+	for st: String in ["font_color", "font_pressed_color", "font_hover_pressed_color", "font_hover_color"]:
+		(ladder if _show_ladder else today).add_theme_color_override(st, Ui.RED)
+	today.pressed.connect(func() -> void:
+		_show_ladder = false
+		_render())
+	ladder.pressed.connect(func() -> void:
+		_show_ladder = true
+		_render())
+	tabs.add_child(today)
+	tabs.add_child(ladder)
+	_right.add_child(tabs)
 	var list := Ui.vbox(0)
-	var board: Array = daily.get("leaderboard", []) if daily.get("leaderboard") is Array else []
-	if board.is_empty():
-		list.add_child(Ui.label("No ranked laps today. Be the first.", Ui.SIZE_SMALL, Ui.INK_3))
-	for r: Variant in board.slice(0, 10):
-		list.add_child(_board_row(r as Dictionary))
+	if _show_ladder:
+		var lad: Array = _info.get("ladder", []) if _info.get("ladder") is Array else []
+		if lad.is_empty():
+			list.add_child(Ui.label("Nobody is ranked yet.", Ui.SIZE_SMALL, Ui.INK_3))
+		for r: Variant in lad.slice(0, 10):
+			list.add_child(_ladder_row(r as Dictionary))
+	else:
+		var board: Array = daily.get("leaderboard", []) if daily.get("leaderboard") is Array else []
+		if board.is_empty():
+			list.add_child(Ui.label("No ranked laps today. Be the first.", Ui.SIZE_SMALL, Ui.INK_3))
+		for r: Variant in board.slice(0, 10):
+			list.add_child(_board_row(r as Dictionary))
 	_right.add_child(list)
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_right.add_child(spacer)
-	var rules := Ui.label("One lap counts: your first lap is your result.\nBeat the 5 drivers nearest your rank.\nRestarting or quitting forfeits.\nMedals earn medal packs.", Ui.SIZE_SMALL, Ui.INK_2)
+	# the rules, at the foot of the left column
+	var lspace := Control.new()
+	lspace.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_left.add_child(lspace)
+	_left.add_child(Ui.label("HOW RANKED WORKS", Ui.SIZE_SMALL, Ui.INK_2, true))
+	var rules := Ui.label("One lap counts: your first lap is your result.\nBeat the 5 drivers nearest your rank.\nRestarting or quitting forfeits.\nMedals earn medal packs.", Ui.SIZE_SMALL, Ui.INK)
 	rules.add_theme_constant_override("line_spacing", -2)
-	_right.add_child(rules)
+	_left.add_child(rules)
 	var go := Ui.button("RANKED RACE  >", true)
 	go.custom_minimum_size = Vector2(0, 30)
 	go.add_theme_font_size_override("font_size", Ui.SIZE_HEADING)
@@ -300,9 +332,9 @@ func _medal_chip(m: String, us: int) -> Control:
 	sb.set_content_margin_all(3)
 	p.add_theme_stylebox_override("panel", sb)
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Ui.hbox(4)
+	var row := Ui.hbox(3)
 	p.add_child(row)
-	row.add_child(medal_icon(m, 16))
+	row.add_child(medal_icon(m, 12))
 	var v := Ui.vbox(0)
 	v.add_child(Ui.label(m.to_upper(), Ui.SIZE_SMALL, c, true))
 	v.add_child(Ui.label("≤ " + Ui.format_time(us / 1000), Ui.SIZE_SMALL, Ui.INK))

@@ -116,7 +116,7 @@ func _build(box: VBoxContainer, r: Dictionary) -> void:
 	box.add_child(mid)
 	# left: each opponent, your time against theirs
 	var opp_box := Ui.vbox(2)
-	opp_box.custom_minimum_size = Vector2(262, 0)
+	opp_box.custom_minimum_size = Vector2(290, 0)
 	mid.add_child(opp_box)
 	opp_box.add_child(Ui.label("YOUR 5 OPPONENTS", Ui.SIZE_SMALL, Ui.INK_2, true))
 	var opps: Array = r.get("opponents", []) if r.get("opponents") is Array else []
@@ -133,6 +133,7 @@ func _build(box: VBoxContainer, r: Dictionary) -> void:
 	_change_label = Ui.label(RankedView._rp_text(change) if not placement else "PLACEMENT %d/5" % (5 - int(rank.get("placementsLeft", 0))), Ui.SIZE_TITLE, GREEN if change >= 0 else Ui.RED, true)
 	if placement:
 		_change_label.add_theme_color_override("font_color", Ui.YELLOW)
+		_change_label.add_theme_font_size_override("font_size", 20)
 	score.add_child(_change_label)
 	var rank_row := Ui.hbox(8)
 	score.add_child(rank_row)
@@ -172,7 +173,7 @@ func _build(box: VBoxContainer, r: Dictionary) -> void:
 		for p: Variant in packs:
 			var medal := String((p as Dictionary).get("medal", "")) if p is Dictionary else ""
 			if medal != "":
-				pr.add_child(RankedView.medal_icon(medal, 12))
+				pr.add_child(RankedView.medal_icon(medal, 12))  # the 24 px medal at 1x
 			pr.add_child(Ui.label(("%s MEDAL PACK" % medal.to_upper()) if medal != "" else "DEVELOPMENT PACK", Ui.SIZE_SMALL, RankEmblem.medal_color(medal) if medal != "" else Ui.INK, true))
 		pr.add_child(Ui.label("·  OPEN IN THE GARAGE", Ui.SIZE_SMALL, Ui.INK_2))
 		box.add_child(pr)
@@ -234,7 +235,12 @@ func _opp_row(o: Dictionary, m: Dictionary, us: int, forfeit: bool) -> Control:
 	row.add_child(chip)
 	var tier := String(o.get("tier", m.get("tier", "")))
 	if tier != "":
-		row.add_child(RankEmblem.make(tier, o.get("division", m.get("division", "")), 32))
+		var dv: Variant = o.get("division", m.get("division", ""))
+		row.add_child(RankEmblem.make(tier, dv, 16, false))
+		var tl := Ui.label(RankEmblem.label_for(tier, dv), Ui.SIZE_SMALL, RankEmblem.color(tier))
+		tl.custom_minimum_size = Vector2(50, 0)
+		tl.clip_text = true
+		row.add_child(tl)
 	var name := Ui.label(String(o.get("name", "")).to_upper() + ("  AI" if bool(o.get("ai", false)) else ""), Ui.SIZE_SMALL, Ui.INK)
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name.clip_text = true
@@ -351,8 +357,9 @@ func _ribbon() -> void:
 	t.texture = tex
 	t.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	t.size = tex.get_size()
-	t.position = _emblem.get_global_rect().get_center() - get_global_rect().position - t.size / 2 + Vector2(0, 26)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.size = tex.get_size() / 2  # 1x on a 1280x720 screen: as wide as the emblem
+	t.position = _emblem.get_global_rect().get_center() - get_global_rect().position - t.size / 2 + Vector2(0, 27)
 	add_child(t)
 	t.modulate.a = 0.0
 	create_tween().tween_property(t, "modulate:a", 1.0, 0.2)

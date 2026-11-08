@@ -79,19 +79,20 @@ static func pack_title(m: String) -> String:
 
 
 ## A pack sprite ("pack_closed", "pack_open", "pack_shake_1"...): the medal's own art when it is
-## there (pack_closed_gold.png), else the development pack's art.
+## there (packs/ or ranked/pack_closed_gold.png), else the development pack's art.
 static func pack_texture(base: String, m: String) -> Texture2D:
 	if MEDAL_TINT.has(m):
-		var own := PartCard.texture("res://assets/sprites/packs/%s_%s.png" % [base, m])
-		if own:
-			return own
+		for dir: String in ["packs", "ranked"]:
+			var own := PartCard.texture("res://assets/sprites/%s/%s_%s.png" % [dir, base, m])
+			if own:
+				return own
 	return PartCard.texture("res://assets/sprites/packs/%s.png" % base)
 
 
 ## The medal tint for the development pack's art (null for a development pack, or when the
 ## medal has its own art for `base`).
 static func medal_material(m: String, base: String = "pack_closed") -> ShaderMaterial:
-	if not MEDAL_TINT.has(m) or ResourceLoader.exists("res://assets/sprites/packs/%s_%s.png" % [base, m]):
+	if not MEDAL_TINT.has(m) or pack_texture(base, m) != pack_texture(base, ""):
 		return null
 	if _shader == null:
 		_shader = Shader.new()

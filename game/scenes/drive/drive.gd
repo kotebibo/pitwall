@@ -423,6 +423,11 @@ func _start_attempt() -> void:
 			await get_tree().create_timer(1.0).timeout
 			if is_inside_tree() and not _ranked_done:
 				_finish_ranked({"us": 65_430_000, "valid": not ("--ranked-forfeit" in Api.args)})
+		elif OS.is_debug_build() and "--forfeit-ask" in Api.args:
+			# testing: the forfeit question
+			await get_tree().create_timer(1.0).timeout
+			if is_inside_tree() and _forfeit_risk():
+				_ask_forfeit()
 
 
 static func _filled(n: int, v: int) -> PackedInt64Array:
@@ -715,7 +720,7 @@ func _show_opponents() -> void:
 		_opp_panel.add_theme_stylebox_override("panel", sb)
 		_opp_panel.theme = Ui.theme
 		_opp_panel.position = Vector2(8, 72)
-		_opp_panel.custom_minimum_size = Vector2(156, 0)
+		_opp_panel.custom_minimum_size = Vector2(176, 0)
 		_opp_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var v := Ui.vbox(1)
 		_opp_panel.add_child(v)
@@ -735,7 +740,7 @@ func _show_opponents() -> void:
 			continue
 		var d: Dictionary = o
 		var row := Ui.hbox(4)
-		row.add_child(RankEmblem.make(String(d.get("tier", "")), d.get("division"), 10, false))
+		row.add_child(RankEmblem.make(String(d.get("tier", "")), d.get("division"), 16, false))
 		var n := Ui.label(String(d.get("name", "")).to_upper(), Ui.SIZE_SMALL, Ui.INK)
 		n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		n.clip_text = true
