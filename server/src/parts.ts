@@ -76,6 +76,18 @@ export const catalogPath = config.partsCatalog || join(config.gameDir, "data", "
 export const catalog: Catalog = JSON.parse(readFileSync(catalogPath, "utf8"));
 export const AREAS = Object.keys(catalog.areas);
 
+/** Livery colours players can pick (game/data/livery.json): cosmetic only, never part of the car spec. */
+export interface Livery {
+  primary: string;
+  secondary: string;
+}
+interface LiveryPalette {
+  default: Livery;
+  primary: { hex: string; name: string }[];
+  secondary: { hex: string; name: string }[];
+}
+export const liveryPalette: LiveryPalette = JSON.parse(readFileSync(join(config.gameDir, "data", "livery.json"), "utf8"));
+
 export const zeroSpec = (): Spec => ({ downforce: 0, drag: 0, balance: 0, power: 0, harvest: 0, grip: 0, traction: 0 });
 export function addSpec(a: Spec, b: Partial<Spec>): Spec {
   const out = { ...a };
@@ -363,6 +375,8 @@ interface PlayerParts {
   awards: Record<string, string>;
   /** Races already added to the fitted parts' records. */
   raced?: Record<string, number>;
+  /** Car colours (hex, from the livery palette); the default livery when unset. */
+  livery?: Livery;
 }
 interface Supply {
   week: number;
@@ -504,6 +518,9 @@ export function partView(part: Part, equipped = false) {
   };
 }
 
+/** A once-per-account bonus pack (signup): outside the weekly limit, which is for packs earned by driving. */
+const isBonusPack = (reason: string) => catalog.packs.earn[reason]?.per === "account";
+
 const packView = (p: Pack) => ({ id: p.id, reason: p.reason, reasonName: catalog.packs.earn[p.reason]?.name ?? p.reason, earnedAt: p.earnedAt, openedAt: p.openedAt ?? null });
 
 function packSummary(p: PlayerParts) {
@@ -512,7 +529,7 @@ function packSummary(p: PlayerParts) {
   return {
     unopened: unopened.length,
     pending: unopened.map(packView),
-    earnedThisWeek: p.packs.filter((x) => x.week === week).length,
+    earnedThisWeek: p.packs.filter((x) => x.week === week && !isBonusPack(x.reason)).length,
     weeklyCap: config.packsPerPlayerWeek,
     maxUnopened: config.maxUnopenedPacks,
   };
@@ -542,6 +559,7 @@ export function garage(player: string) {
     locked: lockCheck(player),
     packs: packSummary(p),
     supply: supplyInfo(),
+    livery: p.livery ?? { ...liveryPalette.default },
   };
 }
 
@@ -556,8 +574,8 @@ export function awardPack(player: string, reason: string, key: string): { awarde
   if (p.awards[awardKey]) return { awarded: false, why: "already earned" };
   const now = clock.now();
   const week = weekOf(now);
-  if (p.packs.filter((x) => x.week === week).length >= config.packsPerPlayerWeek) return { awarded: false, why: "weekly pack limit reached" };
-  if (p.packs.filter((x) => !x.openedAt).length >= config.maxUnopenedPacks) return { awarded: false, why: "too many unopened packs" };
+  if (!isBonusPack(reason) && p.packs.filter((x) => x.week === week && !isBonusPack(x.reason)).length >= config.packsPerPlayerWeek) return { awarded: false, why: "weekly pack limit reached" };
+  if (!isBonusPack(reason) && p.packs.filter((x) => !x.openedAt).length >= config.maxUnopenedPacks) return { awarded: false, why: "too many unopened packs" };
   // The pack id follows from who earned it and why, so the server cannot re-roll a pack by picking ids
   const id = createHash("sha256").update(`pack:${player}:${awardKey}`).digest("hex").slice(0, 16);
   const pack: Pack = { id, reason, key, week, earnedAt: now };
@@ -653,4 +671,18 @@ export function equip(player: string, partId: string) {
     savePlayer(p);
   }
   return garage(player);
+}
+
+/** Sets the car's colours: each must be one of the livery palette's (game/data/livery.json), as "#rrggbb" or "rrggbb". */
+export function setLivery(player: string, primary: unknown, secondary: unknown): { livery: Livery } {
+  const pick = (raw: unknown, options: { hex: string }[], which: string) => {
+    const hex = typeof raw === "string" ? `#${raw.trim().replace(/^#/, "").toLowerCase()}` : "";
+    if (!options.some((o) => o.hex === hex)) throw new PartsError(400, `${which} must be one of the livery palette's colours`);
+    return hex;
+  };
+  const livery = { primary: pick(primary, liveryPalette.primary, "primary"), secondary: pick(secondary, liveryPalette.secondary, "secondary") };
+  const p = loadPlayer(player);
+  p.livery = livery;
+  savePlayer(p);
+  return { livery };
 }

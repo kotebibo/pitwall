@@ -271,6 +271,7 @@
     "partsPerPack": 3,
     "maxSameArea": 2,
     "earn": {
+      "signup": { "name": "Free pack for creating an account", "packs": 1, "per": "account" },
       "first_quali": { "name": "First qualifying lap of the day", "packs": 1, "per": "day" },
       "quali_top3": { "name": "Top 3 in qualifying", "packs": 1, "per": "day" },
       "race_finish": { "name": "Race finish", "packs": 1, "per": "race" }

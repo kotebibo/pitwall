@@ -130,7 +130,7 @@ test("register, log in and read the account back", async () => {
   const c = client();
   const reg = await c.post("/api/accounts/register", { name: "  Nino   Racer ", password: "hunter22" });
   assert.equal(reg.status, 201);
-  assert.deepEqual(Object.keys(reg.body).sort(), ["name", "player", "token", "wallet"]);
+  assert.deepEqual(Object.keys(reg.body).sort(), ["name", "player", "signupPack", "token", "wallet"]);
   assert.match(reg.body.player, /^[0-9a-f]{32}$/);
   assert.equal(reg.body.name, "Nino Racer"); // trimmed, spaces collapsed
   assert.equal(reg.body.wallet, null);
@@ -201,7 +201,7 @@ test("registering with the guest id keeps the guest's garage; an owned id is not
   assert.deepEqual(locked.body, { error: "sign in to use this account" });
   const mine = await c.get(`/api/garage?player=${guest}`, reg.body.token);
   assert.equal(mine.status, 200);
-  assert.equal(mine.body.packs.unopened, 1);
+  assert.equal(mine.body.packs.unopened, 2); // the guest's pack plus the free signup pack
 
   // claiming an owned id again gives a new id instead
   const again = await register("Second Claimer", { guestId: guest });
@@ -209,6 +209,63 @@ test("registering with the guest id keeps the guest's garage; an owned id is not
   assert.notEqual(again.body.player, guest);
   assert.match(again.body.player, /^[0-9a-f]{32}$/);
   for (const guestId of ["not hex at all", "abcd", "a".repeat(65), 42]) assert.equal((await register(`Bad Guest ${String(guestId).length}`, { guestId })).status, 400);
+});
+
+test("a new account gets one free development pack, in the register response and its garage; a claimed guest id too, once", async () => {
+  const c = client();
+  const reg = await register("Free Pack One");
+  assert.equal(reg.status, 201);
+  assert.equal(reg.body.signupPack.reason, "signup");
+  assert.equal(reg.body.signupPack.openedAt, null);
+  const g = (await c.get(`/api/garage?player=${reg.body.player}`, reg.body.token)).body;
+  assert.equal(g.packs.unopened, 1);
+  assert.equal(g.packs.pending[0].id, reg.body.signupPack.id);
+  assert.equal(g.packs.earnedThisWeek, 0); // outside the weekly limit, which is for packs earned by driving
+
+  // a guest who has used up the week's driving packs still gets it when claiming its progress
+  const guest = hexId();
+  let earned = 0;
+  while (P.awardPack(guest, "first_quali", `full-${earned}`).awarded) earned++;
+  assert.ok(earned > 0);
+  const claimed = await register("Free Pack Two", { guestId: guest });
+  assert.equal(claimed.body.player, guest);
+  assert.equal(claimed.body.signupPack.reason, "signup");
+  assert.equal((await c.get(`/api/garage?player=${guest}`, claimed.body.token)).body.packs.unopened, earned + 1);
+  // once per account
+  assert.equal(P.awardPack(guest, "signup", "account").awarded, false);
+  assert.equal((await c.get(`/api/garage?player=${guest}`, claimed.body.token)).body.packs.unopened, earned + 1);
+});
+
+test("livery: POST /api/garage/livery saves palette colours for the owner; GET /api/garage returns them", async () => {
+  const c = client();
+  const { body: owner } = await register("Livery Owner");
+  const { body: other } = await register("Livery Other");
+  const p = owner.player;
+  const garage = async () => (await c.get(`/api/garage?player=${p}`, owner.token)).body.livery;
+  assert.deepEqual(await garage(), { primary: "#e8352b", secondary: "#f1efea" });
+
+  const want = { player: p, primary: "#2546C9", secondary: "f2c230" };
+  assert.equal((await c.post("/api/garage/livery", want)).status, 401);
+  assert.equal((await c.post("/api/garage/livery", want, other.token)).status, 401);
+  const saved = await c.post("/api/garage/livery", want, owner.token);
+  assert.equal(saved.status, 200);
+  assert.deepEqual(saved.body, { livery: { primary: "#2546c9", secondary: "#f2c230" } });
+  assert.deepEqual(await garage(), saved.body.livery);
+
+  // colours off the palette (or off that slot's palette) are refused and change nothing
+  for (const bad of [{ primary: "#123456", secondary: "#f2c230" }, { primary: "#2546c9", secondary: "#8e1b2e" }, { primary: "red", secondary: "#f2c230" }, { primary: 0xe8352b }, {}]) {
+    const r = await c.post("/api/garage/livery", { player: p, ...bad }, owner.token);
+    assert.equal(r.status, 400, JSON.stringify(bad));
+    assert.match(r.body.error, /palette/);
+  }
+  assert.deepEqual(await garage(), saved.body.livery);
+
+  // a guest needs no token; the livery is kept with the garage on disk
+  const guest = hexId();
+  assert.equal((await c.post("/api/garage/livery", { player: guest, primary: "#3ecf6a", secondary: "#1d1f23" })).status, 200);
+  const stored = JSON.parse(readFileSync(join(dataDir, "parts", "players", `${guest}.json`), "utf8"));
+  assert.deepEqual(stored.livery, { primary: "#3ecf6a", secondary: "#1d1f23" });
+  assert.equal((await c.post("/api/garage/livery", { player: "nope", primary: "#3ecf6a", secondary: "#1d1f23" })).status, 400);
 });
 
 test("tokens: tampered, foreign, expired and unknown-account tokens are refused", async () => {
@@ -354,6 +411,7 @@ test("routes acting on an owned player id need its token; guest ids need none", 
   assert.equal((await c.get(`/api/event?player=${p}`, owner.token)).status, 200);
 
   assert.equal((await c.post("/api/packs/open", { player: p })).status, 401);
+  assert.equal((await c.post("/api/packs/open", { player: p }, owner.token)).status, 200); // the free signup pack
   assert.deepEqual((await c.post("/api/packs/open", { player: p }, owner.token)).body, { error: "no unopened packs" });
   assert.equal((await c.post("/api/garage/equip", { player: p, partId: "nope" }, other.token)).status, 401);
   assert.equal((await c.post("/api/garage/equip", { player: p, partId: "nope" }, owner.token)).status, 404);

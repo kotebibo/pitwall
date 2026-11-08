@@ -15,7 +15,7 @@ import * as chain from "./chain.ts";
 import { config, DEV_SEED_SECRET } from "./config.ts";
 import { PLAYER_DRIVER, TRACKS, TRACK_NAMES } from "./content.ts";
 import { drivenInputs, finishDrivenRace, getDrivenRace, startDrivenRace } from "./driven.ts";
-import { catalog, equip, garage, openPack } from "./parts.ts";
+import { awardPack, catalog, equip, garage, openPack, setLivery } from "./parts.ts";
 import { attemptPlayer, eventInfo, ghost, startAttempt, submitRun } from "./quali.ts";
 import { clientIp, limits, takeChainRace } from "./ratelimit.ts";
 import { bootstrap, getRace, startRace, validateSetup, verifyRace } from "./races.ts";
@@ -155,7 +155,15 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
         limits.auth.take(ip);
         const created = await accounts.register(await body(req));
         stats.record("account_created", created.player);
-        return json(res, 201, created);
+        // every new account gets one free development pack (a claimed guest id too: once per account)
+        let signupPack = null;
+        try {
+          const award = awardPack(created.player, "signup", "account");
+          signupPack = award.awarded ? award.pack : null;
+        } catch (err) {
+          console.error("signup pack:", err);
+        }
+        return json(res, 201, { ...created, signupPack });
       }
       if (req.method === "POST" && id === "login" && !action) {
         limits.auth.take(ip);
@@ -242,6 +250,11 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
       const b = await body(req);
       authorize(String(b.player ?? ""));
       return json(res, 200, equip(String(b.player ?? ""), String(b.partId ?? "")));
+    }
+    if (req.method === "POST" && resource === "garage" && id === "livery") {
+      const b = await body(req);
+      authorize(String(b.player ?? ""));
+      return json(res, 200, setLivery(String(b.player ?? ""), b.primary, b.secondary));
     }
     if (req.method === "POST" && resource === "packs" && id === "open") {
       const b = await body(req);
