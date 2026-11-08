@@ -7,10 +7,11 @@ signal step_changed(step: int, title: String, text: String)
 signal feedback(text: String, good: bool)
 signal passed
 
+## {drive_brake} and the like are filled in with the keys bound now (Settings).
 const STEPS := [
-	["THROTTLE", "Hold W / UP (or RT) to accelerate. Reach 180 km/h."],
-	["BRAKING", "Turn 1 is coming. Brake with SPACE (or LT) when the line turns red, around the 100 m board, then turn in."],
-	["STRAIGHT MODE + BOOST", "On the long back straight the wings open by themselves. Hold SHIFT (or A) to Boost."],
+	["THROTTLE", "Hold {drive_throttle} (or {pad_throttle}) to accelerate. Reach 180 km/h."],
+	["BRAKING", "Turn 1 is coming. Brake with {drive_brake} (or {pad_brake}) when the line turns red, around the 100 m board, then turn in."],
+	["STRAIGHT MODE + BOOST", "On the long back straight the wings open by themselves. Hold {drive_boost} (or {pad_boost}) to Boost."],
 	["CLEAN LAP", "Finish the lap with two wheels inside the white lines. Then you're race ready."],
 ]
 
@@ -46,7 +47,18 @@ func _go(i: int) -> void:
 	if step >= STEPS.size():
 		passed.emit()
 		return
-	step_changed.emit(step, STEPS[step][0], STEPS[step][1])
+	step_changed.emit(step, STEPS[step][0], text())
+
+
+## The current step's instructions, with the keys bound now.
+func text() -> String:
+	if step < 0 or step >= STEPS.size():
+		return ""
+	var keys := {}
+	for a: String in ["drive_throttle", "drive_brake", "drive_boost"]:
+		keys[a] = Settings.keys_text(a)
+		keys[a.replace("drive_", "pad_")] = Settings.pad_text(a)
+	return String(STEPS[step][1]).format(keys)
 
 
 ## Called every physics tick with the session (after it stepped).

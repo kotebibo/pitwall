@@ -23,32 +23,42 @@ var reverse := false
 var using_gamepad := false
 
 
+## Default keys of every driving action (physical keys, at most two each).
+## The player can rebind them in Settings, which saves them to user://settings.cfg.
+const DEFAULT_KEYS := {
+	"drive_throttle": [KEY_W, KEY_UP],
+	"drive_brake": [KEY_S, KEY_SPACE],
+	"drive_left": [KEY_A, KEY_LEFT],
+	"drive_right": [KEY_D, KEY_RIGHT],
+	"drive_boost": [KEY_SHIFT, KEY_E],
+	"drive_reverse": [KEY_X],
+	"drive_restart": [KEY_R],
+	"drive_pause": [KEY_ESCAPE, KEY_P],
+	"drive_camera": [KEY_C],
+	"race_tyre_soft": [KEY_1],
+	"race_tyre_medium": [KEY_2],
+	"race_tyre_hard": [KEY_3],
+}
+const DEFAULT_PADS := {
+	"drive_boost": [JOY_BUTTON_A, JOY_BUTTON_RIGHT_SHOULDER],
+	"drive_reverse": [JOY_BUTTON_B],
+	"drive_restart": [JOY_BUTTON_Y],
+	"drive_pause": [JOY_BUTTON_START],
+}
+
+
+## Adds any missing action with its default keys and buttons. Actions that
+## already exist (Settings loads the saved bindings at start-up) are left alone.
 static func ensure_actions() -> void:
-	var keys := {
-		"drive_throttle": [KEY_UP, KEY_W],
-		"drive_brake": [KEY_DOWN, KEY_S, KEY_SPACE],
-		"drive_reverse": [KEY_X],
-		"drive_left": [KEY_LEFT, KEY_A],
-		"drive_right": [KEY_RIGHT, KEY_D],
-		"drive_boost": [KEY_SHIFT, KEY_E],
-		"drive_restart": [KEY_R],
-		"drive_pause": [KEY_ESCAPE, KEY_P],
-	}
-	var pads := {
-		"drive_boost": [JOY_BUTTON_A, JOY_BUTTON_RIGHT_SHOULDER],
-		"drive_reverse": [JOY_BUTTON_B],
-		"drive_restart": [JOY_BUTTON_Y],
-		"drive_pause": [JOY_BUTTON_START],
-	}
-	for action: String in keys:
+	for action: String in DEFAULT_KEYS:
 		if InputMap.has_action(action):
 			continue
 		InputMap.add_action(action)
-		for k: Key in keys[action]:
+		for k: Key in DEFAULT_KEYS[action]:
 			var e := InputEventKey.new()
 			e.physical_keycode = k
 			InputMap.action_add_event(action, e)
-		for b: JoyButton in pads.get(action, []):
+		for b: JoyButton in DEFAULT_PADS.get(action, []):
 			var j := InputEventJoypadButton.new()
 			j.button_index = b
 			InputMap.action_add_event(action, j)

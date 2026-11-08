@@ -29,6 +29,7 @@ Api="*res://autoload/api.gd"
 Profile="*res://autoload/profile.gd"
 Catalog="*res://autoload/catalog.gd"
 Sfx="*res://autoload/sfx.gd"
+Settings="*res://autoload/settings.gd"
 
 [debug]
 
