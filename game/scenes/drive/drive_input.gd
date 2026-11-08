@@ -27,7 +27,7 @@ var using_gamepad := false
 ## The player can rebind them in Settings, which saves them to user://settings.cfg.
 const DEFAULT_KEYS := {
 	"drive_throttle": [KEY_W, KEY_UP],
-	"drive_brake": [KEY_S, KEY_SPACE],
+	"drive_brake": [KEY_S, KEY_DOWN],  # arrows and WASD both work; Space can be bound in Settings
 	"drive_left": [KEY_A, KEY_LEFT],
 	"drive_right": [KEY_D, KEY_RIGHT],
 	"drive_boost": [KEY_SHIFT, KEY_E],

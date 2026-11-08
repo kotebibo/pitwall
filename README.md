@@ -39,6 +39,8 @@ paid out by the on-chain program.
   - With fewer than four entrants, everyone is refunded.
   - The program refuses to close a pool unless players received exactly the rest.
   - On devnet the stakes are devnet SOL; on mainnet they would be USDC.
+- **Settings:** rebind any key (two per action), set master, music and effects volume, and choose the
+  default camera.
 - **Garage:** six part areas (front wing, rear wing, sidepods, floor, suspension, power unit).
   - Parts are unique cards with real engineering concepts, rolled stats, traits and a weight.
   - Each part changes how the car drives and how it looks, on the 3D car and on track.
@@ -47,7 +49,8 @@ paid out by the on-chain program.
   - TEST DRIVE laps the circuit with and without the part and shows where it gains or loses time.
   - Parts wear out: their effect fades near the end of their life, and they retire.
   - Scrapping a part gives R&D credits. These sinks keep the parts market from flooding.
-  - Tune wing flaps, brake bias and differential on the steering wheel.
+  - Tune wing flaps, brake bias and differential on the steering wheel. The tuning tab shows what
+    each change does to top speed, cornering, braking, acceleration and balance, in plain words.
 - **Development packs:** three parts each. You earn them by driving (your first qualifying lap of
   the day, a top-3 qualifying time, every race you finish). They are never sold, and each week has a
   capped part supply.
@@ -80,7 +83,7 @@ paid out by the on-chain program.
 | | Keyboard | Controller |
 |---|---|---|
 | Throttle | W / Up | Right trigger |
-| Brake | S / Down / Space | Left trigger |
+| Brake | S / Down | Left trigger |
 | Steer | A D / Left Right | Left stick |
 | Boost | Shift / E | A / Right bumper |
 | Reverse | X | B |
@@ -88,6 +91,8 @@ paid out by the on-chain program.
 | Pause | Esc / P | Start |
 
 In a race, press 1, 2 or 3 to choose the tyre for your pit stop. C changes the camera.
+Every key can be rebound in **Settings** (the gear in the lobby, or the pause menu), which also has
+master, music and effects volume.
 
 ## Run it locally
 
