@@ -31,14 +31,23 @@ paid out by the on-chain program.
   - Drive into the pit lane under the 80 km/h limiter and stop in your box.
   - Your crew's skill decides how long you are stopped.
   - The whole race is re-driven on the server and the result is settled on Solana.
-- **Race passes:** stake a pass from your wallet for a daily or weekly event (three stake tiers).
-  - Everyone drives the same standard car, so only driving counts.
+- **Ranked:** a ladder from Iron to Challenger, with divisions, rank points, a hidden rating and five
+  placement races.
+  - A ranked race is one lap in the standard car (your own tuning allowed). Your first lap is your
+    result, compared with the five drivers nearest your rating (AI drivers fill in while the ladder
+    is small). Restarting or quitting forfeits.
+  - Daily medal times earn bronze, silver and gold medal packs, each with better odds.
+- **Race passes:** stake a pass from your wallet for a daily or weekly event (three stake tiers), in
+  one of two classes:
+  - SPEC: everyone drives the same standard car, so only driving counts.
+  - OPEN: your own parts and tuning count, and your parts wear.
   - Your best verified lap in the event counts.
   - When the event closes, the Pit Wall program pays the top 20% from the pot. Each paid place
     gets at least 1.5x its stake, and Pit Wall keeps 10%.
   - With fewer than four entrants, everyone is refunded.
   - The program refuses to close a pool unless players received exactly the rest.
   - On devnet the stakes are devnet SOL; on mainnet they would be USDC.
+- **COMPETE screen:** Ranked, SPEC passes and OPEN passes in one place.
 - **Settings:** rebind any key (two per action), set master, music and effects volume, and choose the
   default camera.
 - **Garage:** six part areas (front wing, rear wing, sidepods, floor, suspension, power unit).
