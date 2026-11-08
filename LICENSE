@@ -1,0 +1,15 @@
+Copyright (c) 2026 kotebibo. All rights reserved.
+
+Pit Wall's source code, art, audio, brand assets and documentation are published in this
+repository so that people can view and evaluate them. No licence is granted beyond that.
+
+You may view this repository on GitHub, and fork it on GitHub as GitHub's Terms of Service allow.
+
+You may NOT, without prior written permission from the copyright holder:
+- copy, modify, merge, publish or distribute this code or its assets, in whole or in part;
+- sublicense or sell them;
+- run them as a service, or use them in another product.
+
+Third-party components keep their own licences:
+- Pixelify Sans font: SIL Open Font License 1.1 (see game/assets/fonts/OFL.txt).
+- Godot Engine: MIT licence (not included in this repository).
