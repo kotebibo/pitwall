@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pit Wall · Project details</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/brand/icons/favicon_32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+@font-face{font-family:"Pit Wall Pixel";src:url("assets/PitWallPixel-Regular.ttf") format("truetype");font-weight:400}
+@font-face{font-family:"Pit Wall Pixel";src:url("assets/PitWallPixel-Bold.ttf") format("truetype");font-weight:700}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+/* ============ TOKENS — edit these, not the rules below ============ */
+:root{
+  --bg:#141518; --bg-alt:#1d1f23; --ink:#F1EFEA;
+  --accent:#E8352B; --accent-2:#3ECF6A;
+
+  --ink-1:var(--ink);
+  --ink-2:color-mix(in srgb, var(--ink) 72%, transparent);
+  --ink-3:color-mix(in srgb, var(--ink) 46%, transparent);
+  --rule:color-mix(in srgb, var(--ink) 14%, transparent);
+
+  --display:"Pit Wall Pixel","IBM Plex Mono",ui-monospace,monospace;
+  --body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+
+  --s1:8px; --s2:16px; --s3:24px; --s4:40px; --s5:64px; --s6:96px;
+  --pad:88px;
+  --dur:420ms;
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+
+/* ============ ENGINE — you should not need to touch this ============ */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#000}
+body{font-family:var(--body);color:var(--ink-1);-webkit-font-smoothing:antialiased}
+
+#deck{
+  position:absolute; left:50%; top:50%;
+  width:1280px; height:720px; margin:-360px 0 0 -640px;
+  transform:scale(var(--k,1)); transform-origin:center center;
+}
+
+.slide{
+  position:absolute; inset:0; width:1280px; height:720px;
+  background:var(--bg); padding:var(--pad); overflow:hidden;
+  display:flex; flex-direction:column; justify-content:center; gap:var(--s4);
+  opacity:0; visibility:hidden; pointer-events:none;
+  transition:transform var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.slide.current{opacity:1;visibility:visible;pointer-events:auto;transform:none;z-index:2}
+
+/* transition styles */
+body[data-transition="slide"] .slide.past{transform:translateX(-8%);opacity:0}
+body[data-transition="slide"] .slide.future{transform:translateX(8%);opacity:0}
+body[data-transition="zoom"] .slide.past{transform:scale(1.06);opacity:0}
+body[data-transition="zoom"] .slide.future{transform:scale(.94);opacity:0}
+body[data-transition="fade"] .slide.past,
+body[data-transition="fade"] .slide.future{opacity:0}
+body[data-transition="none"] .slide{transition:none}
+
+[data-fragment]{opacity:0;transform:translateY(10px);transition:opacity 300ms var(--ease),transform 300ms var(--ease)}
+[data-fragment].shown{opacity:1;transform:none}
+
+@media (prefers-reduced-motion:reduce){
+  .slide,[data-fragment]{transition:none!important;transform:none!important}
+}
+
+/* chrome */
+#progress{position:fixed;left:0;bottom:0;height:3px;width:100%;background:transparent;z-index:20}
+#bar{height:100%;width:0;background:var(--accent);transition:width var(--dur) var(--ease)}
+#counter{position:fixed;right:20px;bottom:16px;font:500 13px/1 var(--body);
+  color:var(--ink-3);letter-spacing:.08em;z-index:20;font-variant-numeric:tabular-nums}
+#notes{position:fixed;inset:auto 0 0 0;max-height:38vh;overflow:auto;display:none;
+  background:#0b0b0d;border-top:1px solid #26262b;padding:20px 28px;z-index:30;
+  font:400 15px/1.6 var(--body);color:#d6d6db}
+#notes.on{display:block}
+#notes b{display:block;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+  color:#7a7a85;margin-bottom:8px}
+#help{position:fixed;inset:0;display:none;place-content:center;background:#000c;z-index:40;
+  font:400 16px/2 var(--body);color:#e8e8ec;text-align:left;padding:40px}
+#help.on{display:grid}
+#help kbd{display:inline-block;min-width:26px;text-align:center;padding:2px 7px;margin-right:10px;
+  border:1px solid #44444c;border-radius:4px;font:500 13px/1.5 var(--mono);background:#1a1a1e}
+
+/* overview */
+body.overview{overflow:auto;background:#08080a}
+body.overview #deck{position:static;width:auto;height:auto;margin:0;transform:none;
+  display:grid;grid-template-columns:repeat(4,max-content);gap:14px;padding:14px;justify-content:center}
+body.overview .slide{position:relative;inset:auto;opacity:1;visibility:visible;pointer-events:auto;
+  transform:none;transition:outline-color 120ms;zoom:.19;outline:6px solid transparent;cursor:pointer}
+body.overview .slide.current{outline-color:var(--accent)}
+body.overview #progress,body.overview #counter,body.overview #notes{display:none}
+
+/* ============ CONTENT CLASSES ============ */
+.display{font:300 108px/1.0 var(--display);letter-spacing:-.03em;text-wrap:balance}
+.title{font:400 68px/1.05 var(--display);letter-spacing:-.02em;text-wrap:balance}
+.subhead{font:400 40px/1.25 var(--body);letter-spacing:-.01em}
+.body{font:400 26px/1.45 var(--body);max-width:24ch}
+.cols .body,.panel .body{max-width:none}
+.caption{font:500 19px/1.4 var(--body);letter-spacing:.02em}
+.eyebrow{font:600 15px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.metric{font:300 148px/.9 var(--display);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.ink-2{color:var(--ink-2)} .ink-3{color:var(--ink-3)} .accent{color:var(--accent)}
+.rule{height:1px;background:var(--rule);border:0}
+
+.stack{display:flex;flex-direction:column;gap:var(--s3);align-items:flex-start}
+.stack.pad{padding:var(--pad);justify-content:center;height:100%}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:var(--s5);align-items:center;flex:1}
+.list{list-style:none;display:flex;flex-direction:column;gap:var(--s3)}
+.list li{font:400 34px/1.35 var(--body);padding-left:var(--s4);position:relative}
+.list li::before{content:"";position:absolute;left:0;top:.62em;width:20px;height:1px;background:var(--accent)}
+
+.fig{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+.fig img{max-width:100%;max-height:440px;object-fit:contain;display:block}
+.bleed{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.scrim{position:absolute;inset:0;background:linear-gradient(90deg,
+  color-mix(in srgb,var(--bg) 88%,transparent) 0%,
+  color-mix(in srgb,var(--bg) 70%,transparent) 45%,
+  color-mix(in srgb,var(--bg) 15%,transparent) 100%)}
+.over{position:relative;z-index:2}
+.credit{position:absolute;right:var(--s3);bottom:var(--s2);z-index:2;
+  font:500 13px/1 var(--body);color:var(--ink-3)}
+.half{width:100%;height:100%;object-fit:cover}
+
+.metrics{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:var(--s5);align-items:end;flex:1}
+.metric-item{display:flex;flex-direction:column;gap:var(--s2);align-items:flex-start}
+.panel{background:var(--bg-alt);border:1px solid var(--rule);border-radius:2px;
+  padding:var(--s4);height:100%;display:flex;flex-direction:column;gap:var(--s3);justify-content:center}
+.panel--accent{border-color:var(--accent)}
+.chart{flex:1;min-height:0;position:relative}
+.code{background:var(--bg-alt);border-left:2px solid var(--accent);padding:var(--s4);
+  font:400 26px/1.6 var(--mono);color:var(--ink-1);overflow:hidden;white-space:pre-wrap}
+.quote{font:300 60px/1.2 var(--display);letter-spacing:-.02em;max-width:20ch;text-wrap:balance}
+.notes{display:none}
+
+/* layout overrides */
+[data-layout="title"],[data-layout="statement"],[data-layout="closing"],
+[data-layout="section"],[data-layout="quote"]{justify-content:center;align-items:flex-start}
+[data-layout="image-full"],[data-layout="image-split"]{padding:0}
+[data-layout="image-split"]{display:grid;grid-template-columns:1fr 1fr;gap:0}
+[data-layout="list"],[data-layout="metrics"],[data-layout="chart"],
+[data-layout="compare"],[data-layout="two-col"],[data-layout="code"]{justify-content:flex-start}
+[data-accent]{background:var(--accent);--ink-1:var(--bg);--ink-2:color-mix(in srgb,var(--bg) 78%,transparent);
+  --ink-3:color-mix(in srgb,var(--bg) 55%,transparent)}
+[data-accent] .eyebrow{color:var(--bg)}
+[data-align="center"]{align-items:center;text-align:center}
+
+
+/* ============ PIT WALL ============ */
+.display{font:700 66px/1.08 var(--display);letter-spacing:.01em;text-wrap:balance;max-width:20ch}
+.title{font:700 46px/1.12 var(--display);letter-spacing:.01em;text-wrap:balance}
+.eyebrow{font:500 15px/1 var(--mono)}
+.metric{font:700 120px/.9 var(--display)}
+.caption{font:500 18px/1.4 var(--body)}
+.body{font:400 26px/1.45 var(--body)}
+.list li{font:400 28px/1.35 var(--body)}
+.shot{width:100%;border:1px solid var(--rule);image-rendering:pixelated;display:block}
+.shot.soft{image-rendering:auto}
+.chk{position:absolute;left:0;right:0;height:14px;background-image:conic-gradient(#141518 25%,#f1efea 0 50%,#141518 0 75%,#f1efea 0);background-size:14px 14px;opacity:.85}
+.chk.top{top:0}.chk.bot{bottom:0}
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;align-items:stretch;flex:1}
+.step{background:var(--bg-alt);border-top:3px solid var(--accent);padding:22px;display:flex;flex-direction:column;gap:12px}
+.step .n{font:700 40px/1 var(--display);color:var(--accent)}
+.step .h{font:600 28px/1.2 var(--body)}
+.step{justify-content:flex-start;padding-top:28px}
+.flow{flex:0 0 280px;margin-top:12px}
+.arrow{position:absolute}
+.rules{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:8px}
+.rules .metric{font-size:76px}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;flex:1;align-items:stretch}
+.tag{display:inline-block;font:500 14px/1 var(--mono);color:var(--accent);border:1px solid var(--accent);padding:6px 10px}
+.links{display:grid;grid-template-columns:auto 1fr;gap:12px 28px;font:400 22px/1.3 var(--body)}
+.links a{color:var(--ink-1)}
+.caption a{color:var(--accent);white-space:nowrap}
+.links span.eyebrow{font:500 15px/1.5 var(--mono);color:var(--ink-3);text-transform:uppercase;letter-spacing:.1em}
+
+/* ============ PRINT / PDF ============ */
+@page{size:1280px 720px;margin:0}
+@media print{
+  html,body{overflow:visible;background:#fff}
+  #deck{position:static;width:auto;height:auto;margin:0;transform:none}
+  .slide{position:relative;inset:auto;opacity:1!important;visibility:visible!important;
+    transform:none!important;break-after:page;page-break-after:always}
+  [data-fragment]{opacity:1!important;transform:none!important}
+  #progress,#counter,#notes,#help{display:none!important}
+}
+</style>
+</head>
+<body data-transition="slide">
+
+<div id="deck">
+
+  <!-- ============ SLIDES START ============ -->
+
+  <section class="slide" data-layout="image-full">
+    <img class="bleed" src="assets/keyart.png" alt="Pit Wall key art: a red pixel-art F1 car crossing the finish line" style="image-rendering:pixelated">
+    <div class="scrim"></div>
+    <div class="stack pad over" style="justify-content:flex-start;padding-top:96px">
+      <p class="eyebrow">Solana Hackathon · MLH · November 6–8, 2026</p>
+      <h1 class="display" style="font-size:58px;max-width:12ch">Pit Wall: the F1 team game where you drive</h1>
+      <p class="subhead ink-2" style="font-size:32px">Project details for the judges</p>
+    </div>
+    <aside class="notes">Use the arrow keys or space to move through the deck. Play the game at pitwall-game.fly.dev.</aside>
+  </section>
+
+  <section class="slide" data-layout="compare">
+    <h2 class="title">Pitched at an ideathon in October; built this weekend</h2>
+    <div class="cols">
+      <div class="panel">
+        <p class="eyebrow ink-3">October · Superteam Georgia ideathon</p>
+        <img class="shot soft" src="assets/ideathon_pitch.jpg" alt="A frame from the October ideathon pitch video: a manager-game setup screen">
+        <p class="caption ink-2">Pitch video, deck, tiny sim prototype. No game. <a href="https://youtu.be/43aFbya48PM">Watch the pitch</a></p>
+      </div>
+      <div class="panel panel--accent">
+        <p class="eyebrow">Nov 6–8 · this hackathon</p>
+        <img class="shot" src="assets/1-lobby.png" alt="The Pit Wall lobby in the playable game">
+        <p class="caption ink-2">Game, server, Anchor program, art and sound: 44 commits.</p>
+      </div>
+    </div>
+    <aside class="notes">The October pitch video: https://youtu.be/43aFbya48PM. The ideathon pitched a manager game where races are simulated. At the hackathon the idea was rebuilt from scratch and pivoted: players drive the car themselves, and Solana verifies every lap. The October prototype was a separate JavaScript file; none of its code is in this repository. MLH rules allow arriving with an idea; all code was written during the event.</aside>
+  </section>
+
+  <section class="slide" data-layout="list">
+    <h2 class="title">Every lap becomes proof on Solana</h2>
+    <svg viewBox="0 0 1088 36" width="100%" style="margin-top:36px;display:block" aria-hidden="true">
+      <line x1="129" y1="18" x2="959" y2="18" stroke="var(--rule)" stroke-width="2" stroke-dasharray="6 6"/>
+      <g fill="var(--accent)"><circle cx="129" cy="18" r="9"/><circle cx="406" cy="18" r="9"/><circle cx="683" cy="18" r="9"/><circle cx="959" cy="18" r="9"/>
+      <path d="M260 10 l14 8 l-14 8z"/><path d="M537 10 l14 8 l-14 8z"/><path d="M814 10 l14 8 l-14 8z"/></g>
+    </svg>
+    <div class="flow">
+      <div class="step" data-fragment><p class="n">1</p><p class="h">You drive</p><p class="caption ink-2">Inputs recorded 120 times a second.</p></div>
+      <div class="step" data-fragment><p class="n">2</p><p class="h">Server re-drives</p><p class="caption ink-2">Headless Godot, same physics code.</p></div>
+      <div class="step" data-fragment><p class="n">3</p><p class="h">Times must match</p><p class="caption ink-2">Same time, or rejected.</p></div>
+      <div class="step" data-fragment><p class="n">4</p><p class="h">Saved on-chain</p><p class="caption ink-2">The Anchor program stores it.</p></div>
+    </div>
+    <aside class="notes">Races work the same way, plus commit-reveal: the race seed's hash is committed on-chain before setups lock and revealed after, so nobody can steer the outcome. The whole race is re-driven on the server and settled on-chain.</aside>
+  </section>
+
+  <section class="slide" data-layout="metrics">
+    <h2 class="title">Determinism is what makes the proof trustworthy</h2>
+    <div class="metrics">
+      <div class="metric-item"><p class="metric">120</p><p class="caption ink-3">physics ticks a second, in whole-number fixed point</p></div>
+      <div class="metric-item"><p class="metric accent">0</p><p class="caption ink-3">floating-point numbers in the physics</p></div>
+      <div class="metric-item"><p class="metric">1</p><p class="caption ink-3">physics code, shared by the browser game and the server</p></div>
+    </div>
+    <aside class="notes">Because the physics uses only integers and a stored sine table, a lap driven in a browser on Windows re-drives to the exact microsecond on the Linux server. A per-attempt seed changes grip and wind slightly, so an input log can't be replayed into another attempt, and a run can't contain more ticks than the real time since it started.</aside>
+  </section>
+
+  <section class="slide" data-layout="two-col">
+    <h2 class="title">Anyone can check a lap on Solana Explorer</h2>
+    <div class="cols">
+      <div class="stack">
+        <img class="shot" src="assets/5-lap-verified-on-solana.jpg" alt="In game: VERIFIED P4, recording on Solana">
+        <p class="caption ink-3">In game, after a qualifying lap</p>
+      </div>
+      <div class="stack">
+        <img class="shot soft" src="assets/explorer_logs_tight.png" alt="Solana Explorer: Program logged Instruction SubmitLap, program returned success">
+        <p class="caption ink-3">The same lap on devnet: Instruction SubmitLap, fee 0.000005 SOL</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-layout="metrics">
+    <h2 class="title">Race passes pay the fastest drivers on-chain</h2>
+    <div class="rules">
+      <div class="metric-item"><p class="metric accent">20%</p><p class="caption ink-3">of entrants are paid</p></div>
+      <div class="metric-item"><p class="metric">1.5×</p><p class="caption ink-3">the stake, at least, per winner</p></div>
+      <div class="metric-item"><p class="metric">10%</p><p class="caption ink-3">kept by Pit Wall</p></div>
+    </div>
+    <div class="stack" style="margin-top:auto">
+      <img class="shot soft" src="assets/payout_rows.png" alt="Solana Explorer: the winner's wallet +0.036 SOL, the prize pool -0.036 SOL">
+      <p class="caption ink-3">Devnet payout: winner +0.036 SOL, paid by the program. SPEC: same car. OPEN: your build.</p>
+    </div>
+    <aside class="notes">Players stake SOL from their own wallet in daily or weekly passes. With fewer than 4 entrants, everyone is refunded. The Anchor program holds the stakes in a pool account and refuses to close a pool unless players received exactly the stakes minus Pit Wall's share (capped at 20% by the program). Today it runs on devnet SOL; at launch the stakes would be USDC, after a legal review of paid-entry skill contests.</aside>
+  </section>
+
+  <section class="slide" data-layout="two-col">
+    <h2 class="title">Ranked: one lap, same car, Iron to Challenger</h2>
+    <div class="cols">
+      <div class="stack">
+        <p class="body">Your first lap is your result, compared with the five drivers nearest your rating. Win rank points, climb divisions, earn medal packs.</p>
+        <img class="shot" src="assets/ranked_emblems.png" alt="The ten ranked tier emblems, from Iron to Challenger">
+      </div>
+      <img class="shot" src="assets/2-ranked-result.jpg" alt="Ranked result: beat 5 of 5, +18 RP, promoted to Silver II">
+    </div>
+  </section>
+
+  <section class="slide" data-layout="metrics">
+    <h2 class="title">Parts are earned, scarce and wear out, so the market can't flood</h2>
+    <div class="metrics">
+      <div class="metric-item"><p class="metric accent">0</p><p class="caption ink-3">packs for sale: all are earned by driving</p></div>
+      <div class="metric-item"><p class="metric">5</p><p class="caption ink-3">packs a week per player, at most</p></div>
+      <div class="metric-item"><p class="metric">100%</p><p class="caption ink-3">of its mileage retires a part</p></div>
+    </div>
+    <aside class="notes">A part's effect fades over the last 30% of its life, then it retires. Weekly part supply: 3 parts per active player, between 300 and 3,000 a week. Parts change the physics (downforce, drag, grip, weight…) and the garage shows the effect in real units, with a test drive. Scrapping a part gives R&amp;D credits. Parts live in the database and would be minted only when traded, with the trader paying the mint.</aside>
+  </section>
+
+  <section class="slide" data-layout="two-col">
+    <h2 class="title">Every sprite, sound and 3D model is made by our own code</h2>
+    <div class="cols">
+      <div class="stack">
+        <p class="body">Python draws 255 sprites, numpy synthesises 68 sounds, and Godot code builds the 3D car.</p>
+        <p class="caption ink-3">No stock assets, no AI image generators. One command rebuilds it.</p>
+      </div>
+      <img class="shot" src="assets/sprites_top.png" alt="Contact sheet of the generated car layers, part cards and packs" style="max-height:470px;object-fit:cover;object-position:top">
+    </div>
+    <aside class="notes">About 15,700 lines of Python generators (tools/art, tools/audio, tools/brand) and 2,200 lines of GDScript for the 3D car. The engine sound is built from a V6's firing frequency; crowds are hundreds of synthesised voices; the music is sequenced in code. Helper AI agents wrote these scripts; the outputs were checked on contact sheets and iterated.</aside>
+  </section>
+
+  <section class="slide" data-layout="compare">
+    <h2 class="title">We own all of it: no copyright problems</h2>
+    <div class="cols" style="align-items:stretch">
+      <div class="panel panel--accent">
+        <p class="eyebrow">Ours</p>
+        <p class="body">All art, audio, 3D and code</p>
+        <p class="caption ink-3">Fictional teams and drivers, no F1 marks</p>
+      </div>
+      <div class="panel">
+        <p class="eyebrow ink-3">Licensed</p>
+        <p class="body">One font: Pixelify Sans (SIL OFL), modified and renamed</p>
+        <p class="caption ink-3">Godot (MIT); our code is view-only</p>
+      </div>
+    </div>
+    <aside class="notes">The only third-party asset is the Pixelify Sans font. We redrew its B, 5 and C for legibility after playtesting and renamed it "Pit Wall Pixel", as the Open Font License requires for modified versions. The engine (Godot, MIT) and libraries are used under their licences.</aside>
+  </section>
+
+  <section class="slide" data-layout="list">
+    <h2 class="title">Three pieces, one physics</h2>
+    <div class="three">
+      <div class="panel"><p class="eyebrow">Game</p><p class="body">Godot 4.7 to WebAssembly: a 10 MB download</p></div>
+      <div class="panel"><p class="eyebrow">Server</p><p class="body">Node and TypeScript on Fly.io; re-drives laps</p></div>
+      <div class="panel panel--accent"><p class="eyebrow">Solana</p><p class="body">Anchor on devnet: laps, races, drivers, prize pools</p></div>
+    </div>
+    <p class="caption ink-3">74 server tests, 14 program tests, exact re-drive checks</p>
+  </section>
+
+  <section class="slide" data-layout="statement">
+    <div class="stack">
+      <p class="eyebrow">AI disclosure</p>
+      <h2 class="display">Built solo, with Claude Code as the AI coding assistant</h2>
+      <p class="body ink-2" style="max-width:34ch">I made the design calls and playtested; Claude Code (Claude Opus 5.5) wrote code and asset generators with me. The game calls no AI at runtime.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-layout="two-col">
+    <h2 class="title">Next: real circuits and real stakes</h2>
+    <div class="cols">
+      <ul class="list">
+        <li data-fragment>Real-world circuit layouts, added as data</li>
+        <li data-fragment>USDC race passes on mainnet, after legal review</li>
+        <li data-fragment>Repairs, ranked seasons, part trading</li>
+      </ul>
+      <img class="shot" src="assets/4-race-pit-stop.jpg" alt="A Pit Wall race with a pit stop in progress">
+    </div>
+    <aside class="notes">Also planned: gamepad rebinding. Traded parts would be minted on demand, with the trader paying the mint.</aside>
+  </section>
+
+  <section class="slide" data-layout="closing">
+    <div class="chk top"></div><div class="chk bot"></div>
+    <div class="stack">
+      <h2 class="display">Play it now, free, in your browser</h2>
+      <div class="links">
+        <span class="eyebrow">Play</span><a href="https://pitwall-game.fly.dev">pitwall-game.fly.dev</a>
+        <span class="eyebrow">Code</span><a href="https://github.com/kotebibo/pitwall">github.com/kotebibo/pitwall</a>
+        <span class="eyebrow">Demo</span><a href="https://youtu.be/g7keW8UEFkg">youtu.be/g7keW8UEFkg</a>
+        <span class="eyebrow">Ideathon</span><a href="https://youtu.be/43aFbya48PM">youtu.be/43aFbya48PM (the October pitch)</a>
+        <span class="eyebrow">Program</span><a href="https://explorer.solana.com/address/FRMukL3ubSZcGHxAFjK1ywSqfY3bWod2ro1ySoULwH4r?cluster=devnet">FRMuk…H4r on Solana devnet</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SLIDES END ============ -->
+
+</div>
+
+<div id="progress"><div id="bar"></div></div>
+<div id="counter"></div>
+<div id="notes"><b>Speaker notes</b><div id="notes-body"></div></div>
+<div id="help">
+  <div>
+    <div><kbd>→</kbd> next · <kbd>←</kbd> back · <kbd>space</kbd> next</div>
+    <div><kbd>O</kbd> overview · <kbd>S</kbd> speaker notes · <kbd>F</kbd> fullscreen</div>
+    <div><kbd>Home</kbd> first · <kbd>End</kbd> last · <kbd>?</kbd> this help · <kbd>Esc</kbd> close</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const deck   = document.getElementById('deck');
+  const slides = [...deck.querySelectorAll('.slide')];
+  const bar    = document.getElementById('bar');
+  const counter= document.getElementById('counter');
+  const notes  = document.getElementById('notes');
+  const nbody  = document.getElementById('notes-body');
+  const help   = document.getElementById('help');
+  let i = 0, frag = 0;
+
+  const fragsOf = n => [...slides[n].querySelectorAll('[data-fragment]')];
+
+  function fit(){
+    if (document.body.classList.contains('overview')) return;
+    const k = Math.min(innerWidth / 1280, innerHeight / 720);
+    document.documentElement.style.setProperty('--k', k);
+  }
+
+  function render(){
+    slides.forEach((s, n) => {
+      s.classList.toggle('current', n === i);
+      s.classList.toggle('past',    n <  i);
+      s.classList.toggle('future',  n >  i);
+    });
+    fragsOf(i).forEach((f, n) => f.classList.toggle('shown', n < frag));
+    slides.forEach((s, n) => { if (n !== i) fragsOf(n).forEach(f => f.classList.toggle('shown', n < i)); });
+    bar.style.width = ((i + 1) / slides.length * 100) + '%';
+    counter.textContent = (i + 1) + ' / ' + slides.length;
+    const note = slides[i].querySelector('.notes');
+    nbody.textContent = note ? note.textContent.trim() : '—';
+    if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  function go(n, atEnd){
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    frag = atEnd ? fragsOf(i).length : 0;
+    render();
+  }
+  function next(){
+    if (frag < fragsOf(i).length) { frag++; render(); }
+    else if (i < slides.length - 1) go(i + 1);
+  }
+  function prev(){
+    if (frag > 0) { frag--; render(); }
+    else if (i > 0) go(i - 1, true);
+  }
+  function overview(on){
+    document.body.classList.toggle('overview', on);
+    if (!on) fit();
+    else slides[i].scrollIntoView({block:'center'});
+  }
+
+  addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const ov = document.body.classList.contains('overview');
+    switch (e.key) {
+      case 'ArrowRight': case 'PageDown': case ' ': next(); break;
+      case 'ArrowLeft':  case 'PageUp':  prev(); break;
+      case 'ArrowDown':  if (ov) { go(Math.min(i + 4, slides.length - 1)); break; } next(); break;
+      case 'ArrowUp':    if (ov) { go(Math.max(i - 4, 0)); break; } prev(); break;
+      case 'Home': go(0); break;
+      case 'End':  go(slides.length - 1, true); break;
+      case 'o': case 'O': overview(!ov); break;
+      case 's': case 'S': notes.classList.toggle('on'); break;
+      case 'f': case 'F':
+        document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+        break;
+      case '?': help.classList.toggle('on'); break;
+      case 'Enter': if (ov) overview(false); break;
+      case 'Escape': help.classList.remove('on'); if (ov) overview(false); break;
+      default: return;
+    }
+    e.preventDefault();
+  });
+
+  slides.forEach((s, n) => s.addEventListener('click', () => {
+    if (document.body.classList.contains('overview')) { go(n); overview(false); }
+  }));
+
+  addEventListener('resize', fit);
+  addEventListener('hashchange', () => { const n = parseInt(location.hash.slice(1)); if (n) go(n - 1); });
+
+  fit();
+  const start = parseInt(location.hash.slice(1));
+  go(start ? start - 1 : 0);
+
+  // Expose for the QA script.
+  window.__deck = { go, count: slides.length, showAllFragments(){ document.querySelectorAll('[data-fragment]').forEach(f => f.classList.add('shown')); } };
+})();
+</script>
+
+<!-- Chart configs go here. Read palette values from CSS so charts follow the theme.
+<script>
+  const css = getComputedStyle(document.documentElement);
+  const ink = css.getPropertyValue('--ink').trim();
+  const accent = css.getPropertyValue('--accent').trim();
+  Chart.defaults.font.family = 'Inter'; Chart.defaults.font.size = 18;
+  Chart.defaults.color = ink; Chart.defaults.animation = false;
+  new Chart(document.getElementById('c-calls'), {
+    type: 'line',
+    data: { labels: [...], datasets: [{ data: [...], borderColor: accent, borderWidth: 3, tension: .3, pointRadius: 0 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false } }, y: { grid: { color: 'rgba(255,255,255,.08)' }, border: { display: false } } } }
+  });
+</script>
+-->
+
+</body>
+</html>

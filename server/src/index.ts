@@ -30,8 +30,10 @@ const MIME: Record<string, string> = {
   ".wasm": "application/wasm",
   ".pck": "application/octet-stream",
   ".png": "image/png",
+  ".jpg": "image/jpeg",
   ".ico": "image/x-icon",
   ".json": "application/json",
+  ".ttf": "font/ttf",
 };
 
 function json(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
@@ -137,6 +139,11 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
       return void res.end(stats.adminPage({ timesheet }));
     }
     if (parts[0] !== "api") {
+      // the project-details deck (brand/deck), linked from the hackathon submission
+      if (url.pathname === "/deck" || url.pathname === "/deck/") {
+        res.writeHead(302, { Location: "/brand/deck/index.html" });
+        return void res.end();
+      }
       if ((req.method === "GET" || req.method === "HEAD") && serveStatic(url.pathname, res, String(req.headers["accept-encoding"] ?? ""), req.method === "HEAD")) return;
       return json(res, 404, { error: "not found" });
     }
