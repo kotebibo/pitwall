@@ -48,6 +48,9 @@ func _ready() -> void:
 	if "--garage" in args:
 		_show_garage()
 		return
+	if "--passes" in args:
+		_show_passes()
+		return
 	if "--results" in args:
 		var rr: Variant = await Api.get_json("/api/races/" + args[args.find("--results") + 1])
 		if rr is Dictionary:
@@ -76,6 +79,7 @@ func _show_hub() -> void:
 	s.qualifying.connect(_show_drive.bind(SessionSim.Kind.QUALIFYING))
 	s.race.connect(_show_race)
 	s.garage.connect(_show_garage)
+	s.passes.connect(_show_passes)
 	s.tutorial.connect(_show_drive.bind(SessionSim.Kind.PRACTICE, true))
 	_swap(s)
 
@@ -84,6 +88,29 @@ func _show_garage() -> void:
 	Api.track("garage_open")
 	var s := GarageScreen.new()
 	s.done.connect(_show_hub)
+	_swap(s)
+
+
+func _show_passes() -> void:
+	Api.track("passes_open")
+	var s := RacePassScreen.new()
+	s.exited.connect(_show_hub)
+	s.drive.connect(func(_pool: int) -> void: _show_pass_drive())
+	_swap(s)
+
+
+## A race-pass lap: qualifying rules on the standard car, the same car for everyone.
+func _show_pass_drive() -> void:
+	var s := DriveScreen.new()
+	s.kind = SessionSim.Kind.QUALIFYING
+	s.title = "RACE PASS"
+	s.setup = Profile.setup.duplicate()
+	s.stats = Profile.stats()
+	s.car_spec = {}
+	s.car_parts = {"front_wing": "outwash", "rear_wing": "highdf", "sidepods": "downwash", "floor": "low_rake"}
+	s.on_attempt = _new_attempt.bind(SessionSim.Kind.QUALIFYING, "pass")
+	s.verify_laps = true
+	s.exited.connect(_show_passes)
 	_swap(s)
 
 
@@ -110,11 +137,11 @@ func _show_drive(kind: SessionSim.Kind, tutorial: bool = false) -> void:
 
 
 ## Asks the server for an attempt seed. In qualifying the first run locks the setup.
-func _new_attempt(kind: SessionSim.Kind) -> Variant:
+func _new_attempt(kind: SessionSim.Kind, session: String = "") -> Variant:
 	var res: Variant = await Api.post_json("/api/attempts", {
 		"player": Profile.id,
 		"name": Profile.team_name,
-		"session": "practice" if kind == SessionSim.Kind.PRACTICE else "qualifying",
+		"session": session if session != "" else ("practice" if kind == SessionSim.Kind.PRACTICE else "qualifying"),
 		"setup": Profile.setup,
 	})
 	if not res is Dictionary:
@@ -124,7 +151,7 @@ func _new_attempt(kind: SessionSim.Kind) -> Variant:
 	var seed := PackedByteArray()
 	for i in range(0, seed_hex.length() - 1, 2):
 		seed.append(seed_hex.substr(i, 2).hex_to_int())
-	if kind == SessionSim.Kind.QUALIFYING:
+	if kind == SessionSim.Kind.QUALIFYING and session == "":
 		var you: Dictionary = Profile.event.get("you", {})
 		you["setupLocked"] = true
 		Profile.event["you"] = you

@@ -29,6 +29,29 @@ window.pitwallWallet = {
       for (const b of sig) s += String.fromCharCode(b);
       window.__pw = {state: 'ok', signature: btoa(s)};
     } catch (e) { window.__pw = {state: 'error', error: String((e && e.message) || e)}; }
+  },
+  async loadWeb3() {
+    if (window.solanaWeb3) return;
+    await new Promise((ok, fail) => {
+      const el = document.createElement('script');
+      el.src = 'https://cdn.jsdelivr.net/npm/@solana/web3.js@1/lib/index.iife.min.js';
+      el.onload = ok;
+      el.onerror = () => fail(new Error('Could not load the Solana library.'));
+      document.head.appendChild(el);
+    });
+  },
+  async signTx(b64) {
+    window.__pw = {state: 'pending'};
+    try {
+      await this.loadWeb3();
+      const p = this.provider();
+      if (!p) throw new Error('No Solana wallet found. Install Phantom or Backpack and reload.');
+      const tx = window.solanaWeb3.Transaction.from(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+      const signed = await p.signTransaction(tx);
+      let s = '';
+      for (const b of signed.serialize()) s += String.fromCharCode(b);
+      window.__pw = {state: 'ok', tx: btoa(s)};
+    } catch (e) { window.__pw = {state: 'error', error: String((e && e.message) || e)}; }
   }
 };
 """
@@ -82,3 +105,16 @@ static func sign(tree: SceneTree, message: String) -> String:
 	var r := await _wait(tree)
 	last_error = String(r.get("error", ""))
 	return String(r.get("signature", ""))
+
+
+## The wallet-signed transaction (base64) for an unsigned one the server built, or "" with
+## `last_error` set. The server sends it, so it works whatever network the wallet is set to.
+static func sign_transaction(tree: SceneTree, tx_b64: String) -> String:
+	if not available():
+		last_error = "Wallets work in the web version of the game."
+		return ""
+	_install()
+	JavaScriptBridge.eval("window.pitwallWallet.signTx(%s)" % JSON.stringify(tx_b64), true)
+	var r := await _wait(tree)
+	last_error = String(r.get("error", ""))
+	return String(r.get("tx", ""))

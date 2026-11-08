@@ -36,4 +36,14 @@ pub enum PitWallError {
     InvalidLapTime,
     #[msg("Lap is on a different circuit than this record")]
     CircuitMismatch,
+    #[msg("Invalid race-pass pool parameters")]
+    InvalidPool,
+    #[msg("This pool is closed for entries")]
+    PoolClosed,
+    #[msg("This pool is still open")]
+    PoolStillOpen,
+    #[msg("Payouts would exceed the stakes in the pool")]
+    Overpaid,
+    #[msg("Payouts plus Pit Wall's share must equal the stakes exactly")]
+    PayoutMismatch,
 }

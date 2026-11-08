@@ -96,6 +96,63 @@ pub struct LapRecord {
     pub bump: u8,
 }
 
+/// A race-pass prize pool. Players stake `entry_lamports` to enter a timed event and
+/// are paid by where they place. Stakes sit in this account until the results are paid.
+#[account]
+#[derive(InitSpace)]
+pub struct PassPool {
+    pub pool_id: u64,
+    pub entry_lamports: u64,
+    pub closes_ts: i64,
+    /// Pit Wall's share of the stakes, in basis points (at most MAX_RAKE_BPS).
+    pub rake_bps: u16,
+    pub entrants: u32,
+    /// Stakes received.
+    pub total_lamports: u64,
+    /// Paid out to players so far.
+    pub paid_lamports: u64,
+    /// sha256 of the final standings the server published, set at close.
+    pub results_hash: [u8; 32],
+    pub closed: bool,
+    pub bump: u8,
+}
+
+/// One player's race pass in one pool.
+#[account]
+#[derive(InitSpace)]
+pub struct PassEntry {
+    pub pool: Pubkey,
+    pub player: Pubkey,
+    pub entered_ts: i64,
+    /// Lamports paid to the player (0 until paid).
+    pub payout: u64,
+    pub paid: bool,
+    pub bump: u8,
+}
+
+#[event]
+pub struct PassBought {
+    pub pool_id: u64,
+    pub player: Pubkey,
+    pub entrants: u32,
+    pub total_lamports: u64,
+}
+
+#[event]
+pub struct PassPaid {
+    pub pool_id: u64,
+    pub player: Pubkey,
+    pub amount: u64,
+}
+
+#[event]
+pub struct PoolSettled {
+    pub pool_id: u64,
+    pub results_hash: [u8; 32],
+    pub rake: u64,
+    pub refunded: bool,
+}
+
 #[event]
 pub struct RaceRevealed {
     pub race_id: u64,

@@ -20,6 +20,7 @@ import { attemptPlayer, eventInfo, ghost, startAttempt, submitRun } from "./qual
 import { clientIp, limits, takeChainRace } from "./ratelimit.ts";
 import { bootstrap, getRace, startRace, validateSetup, verifyRace } from "./races.ts";
 import * as stats from "./stats.ts";
+import * as passes from "./passes.ts";
 
 const WEB_DIR = process.env.WEB_DIR ?? new URL("../../build/web/", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
 const MIME: Record<string, string> = {
@@ -144,6 +145,44 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
     /** An owned player id needs its account's token (401 otherwise); a guest id needs none. */
     const authorize = (player: string) => accounts.requireOwner(req, player);
 
+    if (resource === "passes") {
+      // race passes: staked daily/weekly time trials on equal cars, paid out on-chain
+      const accountOf = (player: string) => {
+        try {
+          return accounts.me(player);
+        } catch {
+          return null;
+        }
+      };
+      if (req.method === "GET" && !id) {
+        const player = String(url.searchParams.get("player") ?? "");
+        if (player) authorize(player);
+        return json(res, 200, passes.passesInfo(player, player ? (accountOf(player)?.wallet ?? null) : null));
+      }
+      if (req.method === "POST" && id === "sprint") {
+        if (!stats.isAdmin(req)) return json(res, 401, { error: "admin only" });
+        const b = await body(req);
+        return json(res, 201, passes.createSprint(Math.min(240, Math.max(2, Number(b.minutes ?? 15))), Math.min(1, Math.max(0.001, Number(b.stakeSol ?? 0.01)))));
+      }
+      if (req.method === "POST" && id && (action === "enter" || action === "confirm")) {
+        const b = await body(req);
+        const player = String(b.player ?? "");
+        authorize(player);
+        const acct = accountOf(player);
+        if (!acct) return json(res, 400, { error: "Create an account and link a Solana wallet to buy race passes." });
+        if (!acct.wallet) return json(res, 400, { error: "Link a Solana wallet to your account first (ACCOUNT > LINK SOLANA WALLET)." });
+        try {
+          if (action === "enter") return json(res, 200, await passes.enterTx(player, acct.wallet, Number(id)));
+          const r = await passes.confirmEntry(player, acct.wallet, acct.name, Number(id), String(b.tx ?? ""));
+          stats.record("pass_bought", player, String(id));
+          return json(res, 200, r);
+        } catch (err) {
+          const e = err as Error & { status?: number };
+          if (e.status) return json(res, e.status, { error: e.message });
+          throw err;
+        }
+      }
+    }
     if (req.method === "POST" && resource === "track" && !id) {
       const b = await body(req);
       const event = String(b.event ?? "");

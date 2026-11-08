@@ -21,7 +21,7 @@ var args: PackedStringArray = []
 
 func _ready() -> void:
 	args = OS.get_cmdline_user_args()
-	if OS.is_debug_build() and args.find("--server") + 1 < args.size():
+	if OS.is_debug_build() and args.has("--server") and args.find("--server") + 1 < args.size():
 		base_url = args[args.find("--server") + 1]  # development: another local server
 	# URL switches (?autopilot&offline...) only in debug builds: the public
 	# release must not let an AI drive someone's qualifying laps.
@@ -70,6 +70,8 @@ func _request(path: String, method: HTTPClient.Method, body: String) -> Variant:
 		last_error = String((body_json as Dictionary).get("error", "")) if body_json is Dictionary else ""
 		return null
 	last_error = ""
+	if raw.is_empty():
+		return {}  # 204 No Content (e.g. /api/track)
 	return JSON.parse_string(raw.get_string_from_utf8())
 
 

@@ -10,6 +10,7 @@ import * as chain from "./chain.ts";
 import { config } from "./config.ts";
 import { PLAYER_DRIVER, RIVALS } from "./content.ts";
 import { awardPack, carSpec, setEquipLockCheck, zeroSpec, type Spec } from "./parts.ts";
+import { hasOpenPass, recordPassLap } from "./passes.ts";
 import { redrive } from "./redrive.ts";
 
 export const CIRCUIT = { id: "mtkvari", name: "Mtkvari Circuit", index: 0 };
@@ -39,7 +40,7 @@ interface Lap {
 interface Attempt {
   id: string;
   player: string;
-  session: "practice" | "qualifying";
+  session: "practice" | "qualifying" | "pass";
   seed: string;
   setup: DriveSetup;
   stats: DriveStats;
@@ -136,7 +137,10 @@ export async function startAttempt(player: string, name: string, session: string
   if (!/^[0-9a-f]{16,64}$/.test(player)) throw new Error("bad player id");
   const s = load(currentEventId());
   const setup = validateDriveSetup(setupIn);
-  const kind = session === "practice" ? "practice" : "qualifying";
+  const kind = session === "practice" ? "practice" : session === "pass" ? "pass" : "qualifying";
+  if (kind === "pass" && !hasOpenPass(player)) {
+    throw Object.assign(new Error("buy a race pass first"), { status: 409 });
+  }
   // Account players run under their account name; guests under the team name their client sends
   name = accountName(player) ?? name.replace(/[\u0000-\u001f\u007f]/g, "").trim();
   const p = (s.players[player] ??= { name: name.slice(0, 24) || "Player", laps: 0 });
@@ -154,7 +158,8 @@ export async function startAttempt(player: string, name: string, session: string
   const id = randomBytes(8).toString("hex");
   const seed = createHmac("sha256", config.seedSecret).update(`attempt:${id}`).digest("hex");
   const { stats } = await driverStats();
-  let car = carSpec(player);
+  // race passes are run on equal cars: the standard car for everyone
+  let car = kind === "pass" ? zeroSpec() : carSpec(player);
   if (kind === "qualifying") {
     p.car ??= car;
     car = p.car;
@@ -170,7 +175,7 @@ export async function submitRun(attemptId: string, inputs: string) {
   if (!a) throw new Error("unknown attempt");
   if (Date.now() - a.createdAt > ATTEMPT_TTL_MS) throw new Error("attempt expired");
   if (typeof inputs !== "string" || inputs.length > 2_000_000) throw new Error("bad inputs");
-  const result = await redrive<{ physicsVersion: number; ticks: number; laps: Lap[]; inputHash: string }>({ track: CIRCUIT.id, setup: a.setup, stats: a.stats, car: a.car ?? zeroSpec(), seed: a.seed, inputs, kind: a.session });
+  const result = await redrive<{ physicsVersion: number; ticks: number; laps: Lap[]; inputHash: string }>({ track: CIRCUIT.id, setup: a.setup, stats: a.stats, car: a.car ?? zeroSpec(), seed: a.seed, inputs, kind: a.session === "pass" ? "qualifying" : a.session });
   // A run must have been driven in real time: no more ticks than seconds since the seed was issued
   const elapsedTicks = ((Date.now() - a.createdAt) / 1000 + 3) * TICKS_PER_SECOND;
   if (config.realtimeCheck && result.ticks > elapsedTicks) throw new Error("run is longer than the time since it started");
@@ -188,6 +193,11 @@ export async function submitRun(attemptId: string, inputs: string) {
       writeFileSync(join(dir, "inputs", `${a.id}.txt`), inputs);
       recordOnChain(s, a.player, p, result.physicsVersion);
     }
+  }
+  let pass: ReturnType<typeof recordPassLap> = [];
+  if (best && a.session === "pass") {
+    pass = recordPassLap(a.player, { us: best.us, attempt: a.id, inputHash: result.inputHash });
+    writeFileSync(join(dir, "inputs", `${a.id}.txt`), inputs);
   }
   save(s);
   const position = leaderboard(s).findIndex((r) => r.player === a.player) + 1;
@@ -210,6 +220,7 @@ export async function submitRun(attemptId: string, inputs: string) {
     personalBest,
     position,
     packsEarned,
+    pass,
   };
 }
 

@@ -125,7 +125,7 @@ func _exit_tree() -> void:
 ## up with crisp pixels, so track, cars and effects share one pixel-art grid.
 static func pixel_scale(window_h: int) -> int:
 	var args := Api.args
-	if OS.is_debug_build() and args.find("--pixel-scale") + 1 < args.size():
+	if OS.is_debug_build() and args.has("--pixel-scale") and args.find("--pixel-scale") + 1 < args.size():
 		return clampi(int(args[args.find("--pixel-scale") + 1]), 1, 4)  # video recording
 	return clampi(roundi(window_h / 480.0), 1, 4)
 
@@ -516,7 +516,13 @@ func _verify(us: int) -> void:
 	if res is Dictionary and bool((res as Dictionary).get("verified", false)):
 		var r: Dictionary = res
 		var best: Variant = r.get("best")
-		if best is Dictionary and int((best as Dictionary).get("us", 0)) == us:
+		var in_passes: Array = r.get("pass", [])
+		if best is Dictionary and int((best as Dictionary).get("us", 0)) == us and not in_passes.is_empty():
+			# race pass lap: where it puts you in your passes
+			var p: Dictionary = in_passes[0]
+			_hud.flash("VERIFIED · %s  P%d OF %d" % [String(p.get("pool", "RACE PASS")), int(p.get("rank", 0)), int(p.get("of", 0))], DriveHud.GREEN, 3.5)
+			Sfx.play("verified")
+		elif best is Dictionary and int((best as Dictionary).get("us", 0)) == us:
 			_hud.flash("VERIFIED  P%d  · RECORDING ON SOLANA" % int(r.get("position", 0)), DriveHud.PURPLE if int(r.get("position", 0)) == 1 else DriveHud.GREEN, 3.5)
 			Sfx.play("lap_purple" if int(r.get("position", 0)) == 1 else "verified")
 			var packs: Array = r.get("packsEarned", [])

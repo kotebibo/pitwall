@@ -13,7 +13,7 @@ const dir = join(config.dataDir, "stats");
 mkdirSync(dir, { recursive: true });
 
 /** Events the game may report itself; everything else is recorded by the server. */
-export const CLIENT_EVENTS = new Set(["visit", "rookie_start", "rookie_passed", "practice_start", "quali_start", "race_start", "garage_open", "pack_open_screen"]);
+export const CLIENT_EVENTS = new Set(["visit", "rookie_start", "rookie_passed", "practice_start", "quali_start", "race_start", "garage_open", "pack_open_screen", "passes_open"]);
 
 interface Day {
   day: string;
@@ -122,6 +122,7 @@ const ROWS: [string, string][] = [
   ["race_finished", "Finished races (verified)"],
   ["garage_open", "Opened the garage"],
   ["pack_opened", "Opened packs"],
+  ["pass_bought", "Bought race passes"],
   ["account_created", "Created accounts"],
   ["wallet_linked", "Linked wallets"],
 ];

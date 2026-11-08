@@ -1,6 +1,10 @@
+pub mod close_pool;
 pub mod create_driver;
+pub mod create_pool;
 pub mod create_race;
+pub mod enter_pool;
 pub mod enter_race;
+pub mod pay_out;
 pub mod initialize;
 pub mod post_result;
 pub mod reveal_seed;
@@ -8,9 +12,13 @@ pub mod settle_entry;
 pub mod submit_lap;
 pub mod transfer_driver;
 
+pub use close_pool::*;
 pub use create_driver::*;
+pub use create_pool::*;
 pub use create_race::*;
+pub use enter_pool::*;
 pub use enter_race::*;
+pub use pay_out::*;
 pub use initialize::*;
 pub use post_result::*;
 pub use reveal_seed::*;

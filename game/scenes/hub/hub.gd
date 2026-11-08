@@ -8,6 +8,7 @@ signal practice
 signal qualifying
 signal race
 signal garage
+signal passes
 signal tutorial
 
 var _board: VBoxContainer
@@ -122,7 +123,8 @@ func _build() -> void:
 	_items["qualifying"] = _menu_item("QUALIFYING", "Set your fastest lap. Verified on Solana.", "icon_flag", qualifying, Profile.tutorial_done)
 	_items["race"] = _menu_item("RACE", "Five laps from your grid slot. One pit stop.", "icon_trophy", race)
 	_items["garage"] = _menu_item("GARAGE", "Fit parts, tune the car, open packs.", "icon_wrench", garage)
-	for k: String in ["tutorial", "practice", "qualifying", "race", "garage"]:
+	_items["passes"] = _menu_item("RACE PASSES", "Stake a pass, race equal cars, win the pot.", "icon_coin", passes)
+	for k: String in ["tutorial", "practice", "qualifying", "race", "passes", "garage"]:
 		left.add_child(_items[k])
 	if Profile.tutorial_done:
 		(_items["tutorial"] as Control).custom_minimum_size.y = 30

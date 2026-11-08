@@ -1,0 +1,2185 @@
+{
+  "address": "FRMukL3ubSZcGHxAFjK1ywSqfY3bWod2ro1ySoULwH4r",
+  "metadata": {
+    "name": "pitwall",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Pit Wall: verifiable races and on-chain drivers"
+  },
+  "docs": [
+    "Pit Wall: races whose fairness and timeline are enforced on-chain,",
+    "and drivers that players own, level up by racing, age and retire."
+  ],
+  "instructions": [
+    {
+      "name": "close_pool",
+      "docs": [
+        "Settles a pool: payouts must equal the stakes minus Pit Wall's share (or all stakes, refunded)."
+      ],
+      "discriminator": [
+        140,
+        189,
+        209,
+        23,
+        239,
+        62,
+        239,
+        11
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.pool_id",
+                "account": "PassPool"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "results_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "refund",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "create_driver",
+      "discriminator": [
+        109,
+        132,
+        61,
+        55,
+        125,
+        220,
+        144,
+        245
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "driver",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  105,
+                  118,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "driver_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "driver_id",
+          "type": "u64"
+        },
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "DriverParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_pool",
+      "docs": [
+        "Opens a race-pass prize pool: the stake, when entries close, and Pit Wall's share."
+      ],
+      "discriminator": [
+        233,
+        146,
+        209,
+        142,
+        207,
+        104,
+        64,
+        188
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "pool_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "pool_id",
+          "type": "u64"
+        },
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "PoolParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_race",
+      "docs": [
+        "Opens a race with the seed's commitment (sha256 of the seed) and the lock time."
+      ],
+      "discriminator": [
+        233,
+        107,
+        148,
+        159,
+        241,
+        155,
+        226,
+        54
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "race",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  97,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "race_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "race_id",
+          "type": "u64"
+        },
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "RaceParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "enter_pool",
+      "docs": [
+        "Buys a race pass: the player's stake moves into the pool."
+      ],
+      "discriminator": [
+        73,
+        134,
+        141,
+        203,
+        63,
+        251,
+        217,
+        169
+      ],
+      "accounts": [
+        {
+          "name": "player",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.pool_id",
+                "account": "PassPool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "entry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  115,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "player"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "enter_race",
+      "docs": [
+        "Locks in a setup. Rejected once the race has locked."
+      ],
+      "discriminator": [
+        242,
+        118,
+        55,
+        253,
+        83,
+        235,
+        115,
+        31
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "docs": [
+            "The driver's owner, or the race authority entering on a player's behalf."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "race",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  97,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "race.race_id",
+                "account": "Race"
+              }
+            ]
+          }
+        },
+        {
+          "name": "driver",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  105,
+                  118,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "driver.driver_id",
+                "account": "Driver"
+              }
+            ]
+          }
+        },
+        {
+          "name": "entry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  110,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "race"
+              },
+              {
+                "kind": "account",
+                "path": "driver"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "setup",
+          "type": {
+            "defined": {
+              "name": "SetupParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "One-time setup: records which key runs races (the Pit Wall server)."
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "pay_out",
+      "docs": [
+        "Pays one entrant their winnings (or their stake back) after entries close."
+      ],
+      "discriminator": [
+        122,
+        7,
+        14,
+        119,
+        71,
+        188,
+        166,
+        34
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.pool_id",
+                "account": "PassPool"
+              }
+            ]
+          },
+          "relations": [
+            "entry"
+          ]
+        },
+        {
+          "name": "entry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  115,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "entry.player",
+                "account": "PassEntry"
+              }
+            ]
+          }
+        },
+        {
+          "name": "player",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "post_result",
+      "docs": [
+        "Records the hash of the simulated result, re-runnable by anyone from on-chain data."
+      ],
+      "discriminator": [
+        209,
+        11,
+        193,
+        110,
+        192,
+        1,
+        142,
+        9
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "race",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  97,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "race.race_id",
+                "account": "Race"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "result_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "reveal_seed",
+      "docs": [
+        "Reveals the seed after the lock; the program checks it against the commitment."
+      ],
+      "discriminator": [
+        196,
+        119,
+        194,
+        112,
+        156,
+        211,
+        239,
+        105
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "race",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  97,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "race.race_id",
+                "account": "Race"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "seed",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "settle_entry",
+      "docs": [
+        "Awards a finishing position and applies XP, levelling and ageing to the driver."
+      ],
+      "discriminator": [
+        22,
+        208,
+        102,
+        127,
+        180,
+        201,
+        120,
+        68
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "race",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  97,
+                  99,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "race.race_id",
+                "account": "Race"
+              }
+            ]
+          },
+          "relations": [
+            "entry"
+          ]
+        },
+        {
+          "name": "entry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  110,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "race"
+              },
+              {
+                "kind": "account",
+                "path": "driver"
+              }
+            ]
+          }
+        },
+        {
+          "name": "driver",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  114,
+                  105,
+                  118,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "driver.driver_id",
+                "account": "Driver"
+              }
+            ]
+          },
+          "relations": [
+            "entry"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "position",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "submit_lap",
+      "docs": [
+        "Records a lap the server has re-driven and verified; keeps the player's best."
+      ],
+      "discriminator": [
+        24,
+        31,
+        163,
+        61,
+        163,
+        171,
+        209,
+        26
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "lap_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  97,
+                  112
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "event_id"
+              },
+              {
+                "kind": "arg",
+                "path": "player"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "event_id",
+          "type": "u64"
+        },
+        {
+          "name": "player",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "LapParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "transfer_driver",
+      "discriminator": [
+        64,
+        45,
+        44,
+        158,
+        45,
+        130,
+        157,
+        4
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "driver"
+          ]
+        },
+        {
+          "name": "driver",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "new_owner",
+          "type": "pubkey"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Config",
+      "discriminator": [
+        155,
+        12,
+        170,
+        224,
+        30,
+        250,
+        204,
+        130
+      ]
+    },
+    {
+      "name": "Driver",
+      "discriminator": [
+        4,
+        85,
+        37,
+        116,
+        50,
+        52,
+        176,
+        177
+      ]
+    },
+    {
+      "name": "Entry",
+      "discriminator": [
+        63,
+        18,
+        152,
+        113,
+        215,
+        246,
+        221,
+        250
+      ]
+    },
+    {
+      "name": "LapRecord",
+      "discriminator": [
+        170,
+        120,
+        68,
+        23,
+        67,
+        15,
+        44,
+        162
+      ]
+    },
+    {
+      "name": "PassEntry",
+      "discriminator": [
+        144,
+        191,
+        51,
+        176,
+        196,
+        192,
+        222,
+        21
+      ]
+    },
+    {
+      "name": "PassPool",
+      "discriminator": [
+        170,
+        165,
+        112,
+        143,
+        117,
+        35,
+        238,
+        249
+      ]
+    },
+    {
+      "name": "Race",
+      "discriminator": [
+        114,
+        93,
+        186,
+        119,
+        99,
+        123,
+        162,
+        192
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "LapRecorded",
+      "discriminator": [
+        86,
+        34,
+        181,
+        231,
+        231,
+        92,
+        31,
+        131
+      ]
+    },
+    {
+      "name": "PassBought",
+      "discriminator": [
+        193,
+        155,
+        106,
+        220,
+        20,
+        169,
+        248,
+        39
+      ]
+    },
+    {
+      "name": "PassPaid",
+      "discriminator": [
+        115,
+        7,
+        93,
+        207,
+        178,
+        202,
+        15,
+        113
+      ]
+    },
+    {
+      "name": "PoolSettled",
+      "discriminator": [
+        71,
+        220,
+        136,
+        147,
+        65,
+        185,
+        90,
+        47
+      ]
+    },
+    {
+      "name": "RaceFinished",
+      "discriminator": [
+        39,
+        45,
+        229,
+        137,
+        128,
+        191,
+        40,
+        31
+      ]
+    },
+    {
+      "name": "RaceRevealed",
+      "discriminator": [
+        182,
+        213,
+        238,
+        181,
+        50,
+        143,
+        88,
+        238
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Only the race authority can do this"
+    },
+    {
+      "code": 6001,
+      "name": "NotDriverOwner",
+      "msg": "Only the driver's owner can do this"
+    },
+    {
+      "code": 6002,
+      "name": "RaceLocked",
+      "msg": "Setups are locked for this race"
+    },
+    {
+      "code": 6003,
+      "name": "RaceNotLocked",
+      "msg": "The race has not locked yet"
+    },
+    {
+      "code": 6004,
+      "name": "WrongStatus",
+      "msg": "The race is not in the right state for this"
+    },
+    {
+      "code": 6005,
+      "name": "SeedMismatch",
+      "msg": "Revealed seed does not match the commitment"
+    },
+    {
+      "code": 6006,
+      "name": "LockInPast",
+      "msg": "Lock time must be in the future"
+    },
+    {
+      "code": 6007,
+      "name": "RaceFull",
+      "msg": "Race is full"
+    },
+    {
+      "code": 6008,
+      "name": "NotEnoughEntries",
+      "msg": "A race needs at least two entries"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidSetup",
+      "msg": "Invalid setup"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidRace",
+      "msg": "Invalid race parameters"
+    },
+    {
+      "code": 6011,
+      "name": "InvalidDriver",
+      "msg": "Invalid driver stats"
+    },
+    {
+      "code": 6012,
+      "name": "DriverRetired",
+      "msg": "This driver has retired"
+    },
+    {
+      "code": 6013,
+      "name": "AlreadySettled",
+      "msg": "Entry already settled"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidPosition",
+      "msg": "Invalid finishing position"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidLapTime",
+      "msg": "Lap time is out of range"
+    },
+    {
+      "code": 6016,
+      "name": "CircuitMismatch",
+      "msg": "Lap is on a different circuit than this record"
+    },
+    {
+      "code": 6017,
+      "name": "InvalidPool",
+      "msg": "Invalid race-pass pool parameters"
+    },
+    {
+      "code": 6018,
+      "name": "PoolClosed",
+      "msg": "This pool is closed for entries"
+    },
+    {
+      "code": 6019,
+      "name": "PoolStillOpen",
+      "msg": "This pool is still open"
+    },
+    {
+      "code": 6020,
+      "name": "Overpaid",
+      "msg": "Payouts would exceed the stakes in the pool"
+    },
+    {
+      "code": 6021,
+      "name": "PayoutMismatch",
+      "msg": "Payouts plus Pit Wall's share must equal the stakes exactly"
+    }
+  ],
+  "types": [
+    {
+      "name": "Config",
+      "docs": [
+        "Who may create races and drivers and settle results: the Pit Wall race server."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Driver",
+      "docs": [
+        "A driver owned by a player. Levels up only by racing, ages, retires."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "driver_id",
+            "type": "u64"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "name",
+            "type": {
+              "array": [
+                "u8",
+                24
+              ]
+            }
+          },
+          {
+            "name": "rarity",
+            "type": "u8"
+          },
+          {
+            "name": "pace",
+            "type": "u8"
+          },
+          {
+            "name": "racecraft",
+            "type": "u8"
+          },
+          {
+            "name": "tyre_management",
+            "type": "u8"
+          },
+          {
+            "name": "potential",
+            "docs": [
+              "Highest pace this driver can reach by levelling (rarity raises the ceiling)."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "xp",
+            "type": "u32"
+          },
+          {
+            "name": "level",
+            "type": "u8"
+          },
+          {
+            "name": "races",
+            "type": "u16"
+          },
+          {
+            "name": "wins",
+            "type": "u16"
+          },
+          {
+            "name": "retired",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DriverParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "name",
+            "type": {
+              "array": [
+                "u8",
+                24
+              ]
+            }
+          },
+          {
+            "name": "rarity",
+            "type": "u8"
+          },
+          {
+            "name": "pace",
+            "type": "u8"
+          },
+          {
+            "name": "racecraft",
+            "type": "u8"
+          },
+          {
+            "name": "tyre_management",
+            "type": "u8"
+          },
+          {
+            "name": "potential",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Entry",
+      "docs": [
+        "A team's locked setup for one race. Driver stats are snapshotted at entry,",
+        "so the race can be re-run exactly even after the driver changes."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "race",
+            "type": "pubkey"
+          },
+          {
+            "name": "driver",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "slot",
+            "docs": [
+              "Order of entry; the sim takes teams in slot order."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "team_name",
+            "type": {
+              "array": [
+                "u8",
+                24
+              ]
+            }
+          },
+          {
+            "name": "design",
+            "type": "u8"
+          },
+          {
+            "name": "tyre",
+            "type": "u8"
+          },
+          {
+            "name": "stops",
+            "type": "u8"
+          },
+          {
+            "name": "risk",
+            "type": "u8"
+          },
+          {
+            "name": "pace",
+            "type": "u8"
+          },
+          {
+            "name": "racecraft",
+            "type": "u8"
+          },
+          {
+            "name": "tyre_management",
+            "type": "u8"
+          },
+          {
+            "name": "position",
+            "docs": [
+              "Finishing position, 1-based; 0 until settled."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LapParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "circuit",
+            "type": "u8"
+          },
+          {
+            "name": "physics_version",
+            "type": "u16"
+          },
+          {
+            "name": "lap_us",
+            "docs": [
+              "Lap time in microseconds, as re-driven by the server."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "input_hash",
+            "docs": [
+              "sha256 of the lap's input log."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "LapRecord",
+      "docs": [
+        "A player's best verified qualifying lap at one event. The server re-drives",
+        "every lap from its input log before submitting; the input hash pins that log."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "u64"
+          },
+          {
+            "name": "player",
+            "docs": [
+              "sha256 of the player's id (players have no wallets)."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "circuit",
+            "type": "u8"
+          },
+          {
+            "name": "physics_version",
+            "docs": [
+              "Physics version the best lap was driven on."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "best_lap_us",
+            "docs": [
+              "Best lap time in microseconds."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "best_input_hash",
+            "docs": [
+              "sha256 of the best lap's input log."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "laps",
+            "docs": [
+              "Verified laps submitted."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "updated_ts",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LapRecorded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "event_id",
+            "type": "u64"
+          },
+          {
+            "name": "player",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "lap_us",
+            "type": "u32"
+          },
+          {
+            "name": "best_lap_us",
+            "type": "u32"
+          },
+          {
+            "name": "personal_best",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PassBought",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool_id",
+            "type": "u64"
+          },
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "entrants",
+            "type": "u32"
+          },
+          {
+            "name": "total_lamports",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PassEntry",
+      "docs": [
+        "One player's race pass in one pool."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "entered_ts",
+            "type": "i64"
+          },
+          {
+            "name": "payout",
+            "docs": [
+              "Lamports paid to the player (0 until paid)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "paid",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PassPaid",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool_id",
+            "type": "u64"
+          },
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PassPool",
+      "docs": [
+        "A race-pass prize pool. Players stake `entry_lamports` to enter a timed event and",
+        "are paid by where they place. Stakes sit in this account until the results are paid."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool_id",
+            "type": "u64"
+          },
+          {
+            "name": "entry_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "closes_ts",
+            "type": "i64"
+          },
+          {
+            "name": "rake_bps",
+            "docs": [
+              "Pit Wall's share of the stakes, in basis points (at most MAX_RAKE_BPS)."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "entrants",
+            "type": "u32"
+          },
+          {
+            "name": "total_lamports",
+            "docs": [
+              "Stakes received."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "paid_lamports",
+            "docs": [
+              "Paid out to players so far."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "results_hash",
+            "docs": [
+              "sha256 of the final standings the server published, set at close."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "closed",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "entry_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "closes_ts",
+            "type": "i64"
+          },
+          {
+            "name": "rake_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PoolSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool_id",
+            "type": "u64"
+          },
+          {
+            "name": "results_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "rake",
+            "type": "u64"
+          },
+          {
+            "name": "refunded",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Race",
+      "docs": [
+        "One race. The seed is committed (as its sha256) before setups lock and",
+        "revealed after; the program checks the two match."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "race_id",
+            "type": "u64"
+          },
+          {
+            "name": "track_type",
+            "type": "u8"
+          },
+          {
+            "name": "laps",
+            "type": "u16"
+          },
+          {
+            "name": "base_lap_ms",
+            "type": "u32"
+          },
+          {
+            "name": "commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "lock_ts",
+            "type": "i64"
+          },
+          {
+            "name": "seed",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "result_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "entries",
+            "type": "u8"
+          },
+          {
+            "name": "settled",
+            "type": "u8"
+          },
+          {
+            "name": "positions_taken",
+            "docs": [
+              "Bit n set = position n+1 already awarded (each position once)."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RaceFinished",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "race_id",
+            "type": "u64"
+          },
+          {
+            "name": "result_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RaceParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "track_type",
+            "type": "u8"
+          },
+          {
+            "name": "laps",
+            "type": "u16"
+          },
+          {
+            "name": "base_lap_ms",
+            "type": "u32"
+          },
+          {
+            "name": "commitment",
+            "docs": [
+              "sha256 of the 32-byte seed, which stays secret until the race locks."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "lock_ts",
+            "docs": [
+              "Unix time after which no setups are accepted and the seed may be revealed."
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RaceRevealed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "race_id",
+            "type": "u64"
+          },
+          {
+            "name": "seed",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "SetupParams",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "team_name",
+            "type": {
+              "array": [
+                "u8",
+                24
+              ]
+            }
+          },
+          {
+            "name": "design",
+            "type": "u8"
+          },
+          {
+            "name": "tyre",
+            "type": "u8"
+          },
+          {
+            "name": "stops",
+            "type": "u8"
+          },
+          {
+            "name": "risk",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ],
+  "constants": [
+    {
+      "name": "CONFIG_SEED",
+      "type": "bytes",
+      "value": "[99, 111, 110, 102, 105, 103]"
+    },
+    {
+      "name": "DRIVER_SEED",
+      "type": "bytes",
+      "value": "[100, 114, 105, 118, 101, 114]"
+    },
+    {
+      "name": "ENTRY_SEED",
+      "type": "bytes",
+      "value": "[101, 110, 116, 114, 121]"
+    },
+    {
+      "name": "LAP_SEED",
+      "type": "bytes",
+      "value": "[108, 97, 112]"
+    },
+    {
+      "name": "PASS_SEED",
+      "type": "bytes",
+      "value": "[112, 97, 115, 115]"
+    },
+    {
+      "name": "POOL_SEED",
+      "type": "bytes",
+      "value": "[112, 111, 111, 108]"
+    },
+    {
+      "name": "RACE_SEED",
+      "type": "bytes",
+      "value": "[114, 97, 99, 101]"
+    }
+  ]
+}

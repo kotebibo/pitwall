@@ -59,4 +59,24 @@ pub mod pitwall {
     pub fn submit_lap(ctx: Context<SubmitLap>, event_id: u64, player: [u8; 32], params: LapParams) -> Result<()> {
         instructions::submit_lap::handle_submit_lap(ctx, event_id, player, params)
     }
+
+    /// Opens a race-pass prize pool: the stake, when entries close, and Pit Wall's share.
+    pub fn create_pool(ctx: Context<CreatePool>, pool_id: u64, params: PoolParams) -> Result<()> {
+        instructions::create_pool::handle_create_pool(ctx, pool_id, params)
+    }
+
+    /// Buys a race pass: the player's stake moves into the pool.
+    pub fn enter_pool(ctx: Context<EnterPool>) -> Result<()> {
+        instructions::enter_pool::handle_enter_pool(ctx)
+    }
+
+    /// Pays one entrant their winnings (or their stake back) after entries close.
+    pub fn pay_out(ctx: Context<PayOut>, amount: u64) -> Result<()> {
+        instructions::pay_out::handle_pay_out(ctx, amount)
+    }
+
+    /// Settles a pool: payouts must equal the stakes minus Pit Wall's share (or all stakes, refunded).
+    pub fn close_pool(ctx: Context<ClosePool>, results_hash: [u8; 32], refund: bool) -> Result<()> {
+        instructions::close_pool::handle_close_pool(ctx, results_hash, refund)
+    }
 }
