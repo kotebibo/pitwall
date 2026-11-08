@@ -195,9 +195,9 @@ func _draw_row() -> void:
 		draw_string(Ui.font_bold, Vector2(size.x - right - 30, 14), Catalog.format_stat("weight", kg), HORIZONTAL_ALIGNMENT_RIGHT, 28, Ui.SIZE_SMALL, Catalog.stat_color("weight", kg))
 		right += 32.0
 	draw_string(Ui.font_bold, Vector2(42, 14), part_name(part).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, size.x - 42 - right, Ui.SIZE_SMALL, Ui.INK)
-	draw_string(Ui.font, Vector2(42, 27), ("%s %s" % [rarity.to_upper(), serial(part)]).strip_edges(), HORIZONTAL_ALIGNMENT_LEFT, 72, Ui.SIZE_SMALL, rc)
+	draw_string(Ui.font, Vector2(42, 27), ("%s %s" % [rarity.to_upper(), serial(part)]).strip_edges(), HORIZONTAL_ALIGNMENT_LEFT, 62, Ui.SIZE_SMALL, rc)
 	var line: Array = Catalog.stat_lines(part, 1)[0]
-	draw_string(Ui.font, Vector2(116, 27), line[0], HORIZONTAL_ALIGNMENT_RIGHT, size.x - 166, Ui.SIZE_SMALL, Ui.INK_3)
+	draw_string(Ui.font, Vector2(106, 27), line[0], HORIZONTAL_ALIGNMENT_RIGHT, size.x - 156, Ui.SIZE_SMALL, Ui.INK_3)
 	draw_string(Ui.font_bold, Vector2(size.x - 48, 27), line[1], HORIZONTAL_ALIGNMENT_RIGHT, 42, Ui.SIZE_SMALL, line[2])
 	_draw_durability(Rect2(42, size.y - 3, size.x - 48, 2))
 	if retired(part):

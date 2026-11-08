@@ -587,6 +587,8 @@ func _refresh_packs() -> void:
 		bar.custom_minimum_size = Vector2(280, 6)
 		info.add_child(bar)
 		info.add_child(Ui.label("%d of %d parts released this week. Scarce by design." % [minted, cap], Ui.SIZE_SMALL, Ui.INK))
+	if Catalog.garage.has("credits"):
+		info.add_child(Ui.label("R&D CREDITS: %d  (scrap parts you no longer need for more)" % int(Catalog.garage.get("credits", 0)), Ui.SIZE_SMALL, Ui.YELLOW))
 	var note := Ui.label("Parts live in your garage for free. They are minted on Solana only when you choose to trade one, and the trader pays the mint.", Ui.SIZE_SMALL, Ui.INK_3)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.custom_minimum_size = Vector2(300, 0)
