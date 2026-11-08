@@ -60,6 +60,9 @@ var map_car := Vector2.ZERO
 var map_ghost := Vector2(-1, -1)
 var _map_rect := Rect2()
 var _map_xf := Transform2D()
+## Right edge of the dash cluster and left edge of the map panel, from the last draw.
+var _dash_right := 0.0
+var _map_left := 0.0
 
 
 func _ready() -> void:
@@ -124,7 +127,10 @@ func _draw() -> void:
 	if lights >= 0:
 		_draw_lights(w, h)
 	if pit_text != "":
-		var pr := Rect2(w / 2 - 150, h - 86, 300, 30)
+		# centred in the gap between the dash and the map, so it covers neither
+		var gap_l := _dash_right + 8.0
+		var gap_r := (_map_left if map_points.size() >= 2 else w) - 8.0
+		var pr := Rect2((gap_l + gap_r) / 2 - 150, h - 86, 300, 30)
 		_glass(pr, Ui.YELLOW)
 		_text(pr.position + Vector2(0, 13), pit_text, Ui.SIZE_SMALL, Ui.YELLOW, true, HORIZONTAL_ALIGNMENT_CENTER, pr.size.x)
 		var names := ["SOFT", "MEDIUM", "HARD"]
@@ -133,9 +139,11 @@ func _draw() -> void:
 			var x := pr.position.x + 40 + k * 76
 			var on := k == next_tyre
 			_text(Vector2(x, pr.position.y + 25), "%d %s" % [k + 1, names[k]], Ui.SIZE_SMALL, cols[k] if on else Ui.INK_3, on)
+	# messages sit under the rookie test panel; the BRAKE warning right under them
+	var msg_y := h * (0.33 if tut_title != "" else 0.24)
 	if brake_warning and not waiting:
 		var blink := fmod(Time.get_ticks_msec() / 1000.0, 0.3) < 0.18
-		var r := Rect2(w / 2 - 36, h * 0.30, 72, 20)
+		var r := Rect2(w / 2 - 36, msg_y + 26, 72, 20)
 		draw_rect(r, Ui.RED if blink else Ui.RED_DARK)
 		_text(r.position + Vector2(0, 15), "BRAKE", Ui.SIZE_HEADING, Ui.INK, true, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 	if waiting:
@@ -148,7 +156,7 @@ func _draw() -> void:
 		var a := clampf(_message_left / 0.4, 0.0, 1.0)
 		var slide := (1.0 - clampf(_message_age / 0.15, 0.0, 1.0)) * 20.0
 		var mw := maxf(200.0, Ui.font_bold.get_string_size(message, HORIZONTAL_ALIGNMENT_LEFT, -1, Ui.SIZE_HEADING).x + 34.0)
-		var r := Rect2(w / 2 - mw / 2 + slide, h * (0.33 if tut_title != "" else 0.24), mw, 22)
+		var r := Rect2(w / 2 - mw / 2 + slide, msg_y, mw, 22)
 		draw_rect(r, Color(GLASS, GLASS.a * a))
 		draw_rect(Rect2(r.position, Vector2(3, r.size.y)), Color(message_color, a))
 		_text(r.position + Vector2(0, 16), message, Ui.SIZE_HEADING, Color(message_color, a), true, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
@@ -255,8 +263,9 @@ func _draw_delta(w: float) -> void:
 ## A round speedometer: speed needle on a 0-360 km/h dial, rev lights on the
 ## inner ring, gear in the middle, battery and Boost / Straight Mode beside it.
 func _draw_dash(_w: float, h: float) -> void:
-	var c := Vector2(76, h - 70)
 	var r := 56.0
+	# room on the left for the pedal bars (16 + 6 px out from the dial), 8 px from the screen edge
+	var c := Vector2(8.0 + 6.0 + 16.0 + r, h - 70)
 	var a0 := deg_to_rad(135.0)
 	var sweep := deg_to_rad(270.0)
 	draw_circle(c, r + 6, Color(0.05, 0.055, 0.065, 0.9))
@@ -317,12 +326,14 @@ func _draw_dash(_w: float, h: float) -> void:
 		_text(pos + Vector2(0, 8), label, 6, Ui.BG if on else Ui.INK_3, true, HORIZONTAL_ALIGNMENT_CENTER, 22)
 	lamp.call(Vector2(bx + 14, by + 8), "BST", boosting, false)
 	lamp.call(Vector2(bx + 14, by + 22), "SM", straight_mode, straight_zone)
+	_dash_right = bx + 14 + 22
 
 
 func _draw_map(w: float, h: float) -> void:
 	if map_points.size() < 2:
 		return
 	var origin := Vector2(w - _map_rect.size.x - 16, h - _map_rect.size.y - 16)
+	_map_left = origin.x - 8
 	_glass(Rect2(origin - Vector2(8, 8), _map_rect.size + Vector2(16, 16)))
 	var xf := Transform2D(0.0, origin) * _map_xf
 	var line := xf * map_points

@@ -269,7 +269,9 @@ func _build_pause() -> Control:
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(230, 0)
-	panel.position = Vector2(-115, -100)
+	# grows from the centre as its content needs (the key list is wider than 230)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	root.add_child(panel)
 	var box := Ui.vbox(5)
 	panel.add_child(box)

@@ -29,8 +29,9 @@ func _ready() -> void:
 	sb.set_content_margin_all(14)
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	panel.custom_minimum_size = Vector2(280, 0)
-	panel.position = Vector2(-140, -120)
 	add_child(panel)
 	_box = Ui.vbox(6)
 	panel.add_child(_box)

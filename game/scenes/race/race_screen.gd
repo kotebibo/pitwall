@@ -162,7 +162,8 @@ func _choose_tyre() -> void:
 	var panel := _glass_panel()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(330, 0)
-	panel.position = Vector2(-165, -90)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	_overlay.add_child(panel)
 	var v := Ui.vbox(6)
 	panel.add_child(v)

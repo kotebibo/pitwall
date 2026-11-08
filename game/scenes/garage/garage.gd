@@ -224,9 +224,13 @@ func _slot(area: String) -> Control:
 	b.add_child(a)
 	var n := Ui.label("", Ui.SIZE_SMALL, Ui.INK, true)
 	n.name = "PartName"
-	n.position = Vector2(38, 18)
-	n.size = Vector2(72, 14)
+	# the rest of the slot's width; a name longer than that ends in "…"
+	n.anchor_right = 1.0
+	n.offset_left = 38
+	n.offset_top = 18
+	n.offset_right = -4
 	n.clip_text = true
+	n.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(n)
 	return b

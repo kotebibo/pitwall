@@ -47,6 +47,8 @@ func _ready() -> void:
 		return
 	if "--garage" in args:
 		_show_garage()
+		if OS.is_debug_build() and args.find("--tab") + 1 < args.size():
+			(_screen as GarageScreen).call("_show_tab", int(args[args.find("--tab") + 1]))  # testing: open a garage tab
 		return
 	if "--results" in args:
 		var rr: Variant = await Api.get_json("/api/races/" + args[args.find("--results") + 1])

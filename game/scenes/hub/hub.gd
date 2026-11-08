@@ -96,8 +96,8 @@ func _shade() -> void:
 
 func _build() -> void:
 	# Left: brand and the menu
-	var left := Ui.vbox(6)
-	left.position = Vector2(22, 18)
+	var left := Ui.vbox(4)
+	left.position = Vector2(22, 12)
 	left.custom_minimum_size = Vector2(250, 0)
 	add_child(left)
 	var logo_tex := PartCard.texture("res://assets/sprites/ui/logo.png")
@@ -115,43 +115,42 @@ func _build() -> void:
 	_closes = Ui.label("", Ui.SIZE_SMALL, Ui.YELLOW)
 	left.add_child(_closes)
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 6)
+	gap.custom_minimum_size = Vector2(0, 2)
 	left.add_child(gap)
-	_items["tutorial"] = _menu_item("ROOKIE TEST", "Two minutes: learn to drive the car." if not Profile.tutorial_done else "Replay the driving tutorial.", "icon_play", tutorial, not Profile.tutorial_done)
+	_items["tutorial"] = _menu_item("ROOKIE TEST", "Two minutes: learn to drive the car." if not Profile.tutorial_done else "Replay the driving tutorial.", "icon_play", tutorial, not Profile.tutorial_done, Profile.tutorial_done)
 	_items["practice"] = _menu_item("PRACTICE", "Learn the track. Racing line on, setup free.", "icon_stopwatch", practice)
 	_items["qualifying"] = _menu_item("QUALIFYING", "Set your fastest lap. Verified on Solana.", "icon_flag", qualifying, Profile.tutorial_done)
 	_items["race"] = _menu_item("RACE", "Five laps from your grid slot. One pit stop.", "icon_trophy", race)
 	_items["garage"] = _menu_item("GARAGE", "Fit parts, tune the car, open packs.", "icon_wrench", garage)
 	for k: String in ["tutorial", "practice", "qualifying", "race", "garage"]:
 		left.add_child(_items[k])
-	if Profile.tutorial_done:
-		(_items["tutorial"] as Control).custom_minimum_size.y = 30
-	else:
+	if not Profile.tutorial_done:
 		_tag("tutorial", "START HERE")
 
-	# Account chip, top right
+	# Right: one column from top to bottom (account, timesheet, driver, your car),
+	# so a long timesheet pushes the car down and shrinks it instead of overlapping it
+	var right := Ui.vbox(6)
+	right.anchor_left = 1.0
+	right.anchor_right = 1.0
+	right.anchor_bottom = 1.0
+	right.offset_left = -262
+	right.offset_right = -20
+	right.offset_top = 8
+	right.offset_bottom = -8
+	add_child(right)
 	_account_chip = Ui.button("")
 	_account_chip.add_theme_font_size_override("font_size", Ui.SIZE_SMALL)
-	_account_chip.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	_account_chip.position = Vector2(-262, 8)
-	_account_chip.custom_minimum_size = Vector2(242, 0)
 	_account_chip.pressed.connect(_open_account)
-	add_child(_account_chip)
+	right.add_child(_account_chip)
 	_refresh_account()
 
 	# Footer
 	_status = Ui.label("", Ui.SIZE_SMALL, Ui.INK_3)
 	_status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	_status.position = Vector2(24, -18)
+	_status.position = Vector2(24, -16)
 	_status.size = Vector2(400, 12)
 	add_child(_status)
 
-	# Right: timesheet and driver
-	var right := Ui.vbox(6)
-	right.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	right.position = Vector2(-262, 34)
-	right.custom_minimum_size = Vector2(242, 0)
-	add_child(right)
 	var sheet := _glass_panel()
 	right.add_child(sheet)
 	var sv := Ui.vbox(2)
@@ -168,22 +167,22 @@ func _build() -> void:
 	_driver_box = Ui.vbox(3)
 	driver.add_child(_driver_box)
 
-	# Your car, in 3D, on a turntable: click to open the garage
+	# Your car, in 3D, on a turntable: at the bottom, at most 242x112, smaller when the column is full
+	var car_box := AspectRatioContainer.new()
+	car_box.ratio = 242.0 / 112.0
+	car_box.alignment_vertical = AspectRatioContainer.ALIGNMENT_END
+	car_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	car_box.custom_minimum_size = Vector2(0, 40)
+	right.add_child(car_box)
 	var car := CarShowcase.new()
-	car.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	car.position = Vector2(-262, -128)
-	car.size = Vector2(242, 112)
-	car.custom_minimum_size = Vector2(242, 112)
-	add_child(car)
+	car_box.add_child(car)
 	car.set_parts(_full_look())
 	car.set_colors(Catalog.livery_color("primary"), Catalog.livery_color("secondary"))
 	_showcase = car
 	var go := Ui.button("YOUR CAR  ·  GARAGE  >")
 	go.add_theme_font_size_override("font_size", Ui.SIZE_SMALL)
-	go.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	go.position = Vector2(-262, -22)
 	go.pressed.connect(func() -> void: garage.emit())
-	add_child(go)
+	right.add_child(go)
 
 
 func _glass_panel() -> PanelContainer:
@@ -199,10 +198,12 @@ func _glass_panel() -> PanelContainer:
 
 
 ## A big menu entry: icon, title, hint; slides and lights up on hover.
-func _menu_item(title: String, hint: String, icon: String, sig: Signal, primary: bool = false) -> Control:
+## Compact: a smaller title (the rookie test once it is done). Laid out by
+## containers, so the entry is always as tall as its text, icon centred.
+func _menu_item(title: String, hint: String, icon: String, sig: Signal, primary: bool = false, compact: bool = false) -> Control:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_ALL
-	b.custom_minimum_size = Vector2(250, 44)
+	b.custom_minimum_size = Vector2(250, 0)
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color(0.1, 0.105, 0.12, 0.78) if not primary else Color(Ui.RED_DARK, 0.92)
 	normal.border_color = Ui.RED if primary else Color(1, 1, 1, 0.07)
@@ -220,39 +221,57 @@ func _menu_item(title: String, hint: String, icon: String, sig: Signal, primary:
 	b.add_theme_stylebox_override("focus", hover)
 	b.pressed.connect(func() -> void: sig.emit())
 	b.tooltip_text = hint
+	var pad := MarginContainer.new()
+	pad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.add_theme_constant_override("margin_left", 12)
+	pad.add_theme_constant_override("margin_right", 8)
+	pad.add_theme_constant_override("margin_top", 2 if compact else 3)
+	pad.add_theme_constant_override("margin_bottom", 2 if compact else 3)
+	b.add_child(pad)
+	# the button is as tall as its content (known once the theme's font applies)
+	pad.minimum_size_changed.connect(func() -> void: b.custom_minimum_size.y = pad.get_combined_minimum_size().y)
+	var row := Ui.hbox(8)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.add_child(row)
 	var tex := PartCard.texture("res://assets/sprites/ui/%s.png" % icon)
-	var x := 12.0
 	if tex:
 		var ic := TextureRect.new()
 		ic.texture = tex
 		ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		ic.position = Vector2(12, 14)
-		ic.size = Vector2(16, 16)
+		ic.custom_minimum_size = Vector2(16, 16)
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ic.modulate = Ui.INK if not primary else Color.WHITE
-		b.add_child(ic)
-		x = 36.0
-	var t := Ui.label(title, Ui.SIZE_HEADING, Ui.INK, true)
-	t.position = Vector2(x, 5)
+		row.add_child(ic)
+	var text := Ui.vbox(0)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(text)
+	var t := Ui.label(title, Ui.SIZE_BODY if compact else Ui.SIZE_HEADING, Ui.INK, true)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(t)
+	text.add_child(t)
 	var h := Ui.label(hint, Ui.SIZE_SMALL, Ui.INK_2 if not primary else Ui.INK)
-	h.position = Vector2(x, 25)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(h)
+	text.add_child(h)
 	var tag := Ui.label("", Ui.SIZE_SMALL, Ui.YELLOW, true)
 	tag.name = "Tag"
-	tag.position = Vector2(150, 7)
-	tag.size = Vector2(92, 12)
+	tag.anchor_left = 1.0
+	tag.anchor_right = 1.0
+	tag.offset_left = -100
+	tag.offset_right = -8
+	tag.offset_top = 5
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(tag)
+	# slide the text (not the icon) on hover; the row only re-sorts it when resized
+	var x := 24.0 if tex else 0.0
 	b.mouse_entered.connect(func() -> void:
-		create_tween().tween_property(t, "position:x", x + 5, 0.08)
-		create_tween().tween_property(h, "position:x", x + 5, 0.08))
+		create_tween().tween_property(text, "position:x", x + 5, 0.08))
 	b.mouse_exited.connect(func() -> void:
-		create_tween().tween_property(t, "position:x", x, 0.12)
-		create_tween().tween_property(h, "position:x", x, 0.12))
+		create_tween().tween_property(text, "position:x", x, 0.12))
 	return b
 
 
