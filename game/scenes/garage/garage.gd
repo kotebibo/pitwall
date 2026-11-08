@@ -570,7 +570,7 @@ func _refresh_packs() -> void:
 	badge.position = Vector2(60 + art.size.x - 20, 24)
 	_packs_page.add_child(badge)
 	if count > 0:
-		var bob := create_tween().set_loops()
+		var bob := art.create_tween().set_loops()  # bound to the art: dies with it when the page is rebuilt
 		bob.tween_property(art, "position:y", 18.0, 0.8).set_trans(Tween.TRANS_SINE)
 		bob.tween_property(art, "position:y", 24.0, 0.8).set_trans(Tween.TRANS_SINE)
 	if count > 0:
