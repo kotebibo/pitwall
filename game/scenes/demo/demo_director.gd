@@ -43,7 +43,7 @@ func _ready() -> void:
 	_cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cursor.draw.connect(_draw_cursor)
 	add_child(_cursor)
-	_cursor.visible = shot in ["hub", "garage", "garage3", "livery", "tuning", "passes", "passes2"]
+	_cursor.visible = shot in ["hub", "garage", "garage3", "livery", "tuning", "passes", "passes2", "compete"]
 	_set_pos(_pos)
 	match shot:
 		"hub": _hub()
@@ -51,6 +51,7 @@ func _ready() -> void:
 		"tuning": _tuning()
 		"passes": _passes()
 		"passes2": _passes2()
+		"compete": _compete()
 		"garage3": _garage3()
 		"livery": _livery()
 
@@ -366,6 +367,30 @@ func _collect_swatches(n: Node, out: Array[Button]) -> void:
 		if c is Button and (c as Button).text == "" and (c as Button).is_visible_in_tree():
 			out.append(c)
 		_collect_swatches(c, out)
+
+
+## COMPETE: the rank and today's board, the ladder, then the SPEC and OPEN pass tabs.
+func _compete() -> void:
+	await wait(2.4)
+	await move("LADDER", 0.6)
+	await wait(0.2)
+	await click()
+	await wait(1.6)
+	await move("TODAY", 0.4)
+	await click()
+	await wait(0.8)
+	await move("SPEC PASSES", 0.6)
+	await click()
+	await wait(1.8)
+	await move("OPEN PASSES", 0.5)
+	await click()
+	await wait(1.8)
+	await move("RANKED RACE", 0.0)  # off-screen until the RANKED tab is back
+	await move("RANKED", 0.6)
+	await click()
+	await wait(0.8)
+	await move("RANKED RACE", 0.6)
+	await wait(1.5)
 
 
 ## Race passes, second take: look over the tiers, then your pool's standings.
