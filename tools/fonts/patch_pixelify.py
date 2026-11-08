@@ -1,13 +1,14 @@
-"""Makes the static UI fonts from Pixelify Sans, with clearer B and 5.
+"""Makes the static UI fonts from Pixelify Sans, with clearer B, 5 and C.
 
     python tools/fonts/patch_pixelify.py
 
 Playtesters read Pixelify Sans' "B" as a "G" (its middle bar does not touch the
 stem, and both left corners are cut) and its "5" as an "S" (rounded top-left,
-hooked top-right). This script instances the variable font at Regular (400) and
-Bold (700), then redraws those two glyphs:
+hooked top-right); its "C" can pass for an "O" (a one-pixel opening). This script
+instances the variable font at Regular (400) and Bold (700), then redraws them:
   B: square left corners, middle bar joined to the stem;
-  5: a flat top bar with square corners, no hook.
+  5: a flat top bar with square corners, no hook;
+  C: a wider opening on the right.
 Point counts never change; points are only moved (sometimes onto each other), so
 every other glyph and all metrics stay exactly as they were.
 
@@ -67,13 +68,26 @@ def fix_5(glyph):
         c[outer[k]] = (right, bar_bottom)
 
 
+def fix_c(glyph, s_glyph):
+    """Opens the C: its right-hand arms stop where the S's do, so it no longer reads as an O."""
+    c = glyph.coordinates
+    (outer,) = contours(glyph)
+    sc = s_glyph.coordinates
+    low, high = sc[3][1], sc[17][1]  # the S's lower and upper terminals (the pixel grid of this weight)
+    for k in (9, 10):
+        c[outer[k]] = (c[outer[k]][0], high)
+    for k in (15, 16):
+        c[outer[k]] = (c[outer[k]][0], low)
+
+
 def build(weight: int, style: str) -> Path:
     font = instantiateVariableFont(TTFont(SRC), {"wght": weight}, updateFontNames=False)
     cmap = font.getBestCmap()
     glyf = font["glyf"]
     fix_b(glyf[cmap[ord("B")]])
     fix_5(glyf[cmap[ord("5")]])
-    for name in ("B", "five"):
+    fix_c(glyf[cmap[ord("C")]], glyf[cmap[ord("S")]])
+    for name in ("B", "five", "C"):
         glyf[name].recalcBounds(glyf)
     names = font["name"]
     for rec in list(names.names):
