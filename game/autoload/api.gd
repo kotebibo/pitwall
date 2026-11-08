@@ -21,6 +21,8 @@ var args: PackedStringArray = []
 
 func _ready() -> void:
 	args = OS.get_cmdline_user_args()
+	if OS.is_debug_build() and args.find("--server") + 1 < args.size():
+		base_url = args[args.find("--server") + 1]  # development: another local server
 	# URL switches (?autopilot&offline...) only in debug builds: the public
 	# release must not let an AI drive someone's qualifying laps.
 	if OS.has_feature("web") and OS.is_debug_build():
