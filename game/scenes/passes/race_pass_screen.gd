@@ -1,11 +1,21 @@
 class_name RacePassScreen
 extends Control
-## Race passes: buy an entry to a daily or weekly time trial with your wallet, drive the standard
-## car (everyone drives the same car), and the fastest verified laps split the pot. The pool,
-## the entries and the payouts are on Solana; on devnet the stakes are devnet SOL.
+## COMPETE: three tabs. RANKED (the free ranked ladder, see RankedView), and the race passes in
+## two classes: buy an entry to a daily or weekly time trial with your wallet, drive a lap, and
+## the fastest verified laps split the pot. SPEC passes are driven in the standard car (only
+## driving counts), OPEN passes in your own car (your parts and tuning count). The pool, the
+## entries and the payouts are on Solana; on devnet the stakes are devnet SOL.
 
 signal exited
-signal drive(pool_id: int)
+## mode: "ranked", "spec" or "open"; pool_id: the pass pool (0 for ranked).
+signal drive(mode: String, pool_id: int)
+
+const TABS := ["ranked", "spec", "open"]
+const TAB_NAMES := ["RANKED", "SPEC PASSES", "OPEN PASSES"]
+const CLASS_INTRO := {
+	"spec": "Everyone drives the standard car: only driving counts.",
+	"open": "Bring your own car: your parts and tuning count.",
+}
 
 const TIER_COLORS := {"BRONZE": Color("c98a5a"), "SILVER": Color("c6c8d0"), "GOLD": Color("f2c230"), "SPRINT": Color("5ec8e5")}
 
@@ -16,6 +26,12 @@ var _detail: VBoxContainer
 var _status: Label
 var _wallet_chip: Button
 var _busy := false
+## The open tab: "ranked", "spec" or "open".
+var tab := "ranked"
+var _tab_buttons: Array[Button] = []
+var _pass_nodes: Array[Control] = []
+var _class_intro: Label
+var _ranked: RankedView
 
 
 func _ready() -> void:
@@ -34,7 +50,17 @@ func _ready() -> void:
 	var back := Ui.button("< WEEKEND")
 	back.pressed.connect(func() -> void: exited.emit())
 	top.add_child(back)
-	top.add_child(Ui.label("RACE PASSES", Ui.SIZE_HEADING, Ui.INK, true))
+	top.add_child(Ui.label(" COMPETE ", Ui.SIZE_HEADING, Ui.INK, true))
+	for i in TABS.size():
+		var tb := Ui.button(TAB_NAMES[i])
+		tb.toggle_mode = true
+		tb.custom_minimum_size = Vector2(64, 0)
+		tb.tooltip_text = ["Ranked races: one lap against the 5 drivers nearest your rank. Free.",
+			"Race passes in the standard car: only driving counts.",
+			"Race passes in your own car: your parts and tuning count."][i]
+		tb.pressed.connect(show_tab.bind(TABS[i]))
+		top.add_child(tb)
+		_tab_buttons.append(tb)
 
 	_wallet_chip = Ui.button("")
 	_wallet_chip.add_theme_font_size_override("font_size", Ui.SIZE_SMALL)
@@ -44,14 +70,14 @@ func _ready() -> void:
 	_wallet_chip.pressed.connect(_open_account)
 	add_child(_wallet_chip)
 
-	var intro := Ui.label("Buy a pass, then drive the standard car: everyone races the same car, so only driving counts. The fastest verified laps split the pot, paid out on Solana.", Ui.SIZE_SMALL, Ui.INK_2)
-	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	intro.position = Vector2(14, 34)
-	intro.custom_minimum_size = Vector2(600, 0)
-	intro.size = Vector2(600, 0)
+	_class_intro = Ui.label("", Ui.SIZE_BODY, Ui.INK, true)
+	_class_intro.position = Vector2(14, 34)
+	add_child(_class_intro)
+	var intro := Ui.label("Buy a pass, then drive a lap. The fastest verified laps split the pot, paid out on Solana.", Ui.SIZE_SMALL, Ui.INK_2)
+	intro.position = Vector2(14, 48)
 	add_child(intro)
 	var devnet := Ui.label("DEVNET TEST · STAKES ARE DEVNET SOL WITH NO REAL VALUE · USDC ON MAINNET", Ui.SIZE_SMALL, Ui.YELLOW, true)
-	devnet.position = Vector2(14, 56)
+	devnet.position = Vector2(14, 60)
 	add_child(devnet)
 
 	_grid = GridContainer.new()
@@ -81,24 +107,85 @@ func _ready() -> void:
 	_status.offset_top = -30
 	_status.custom_minimum_size = Vector2(320, 0)
 	add_child(_status)
+	_pass_nodes = [_class_intro, intro, devnet, _grid, panel, _status, _wallet_chip]
+
+	_ranked = RankedView.new()
+	add_child(_ranked)
+	_ranked.offset_top = 34
+	_ranked.race.connect(func() -> void: drive.emit("ranked", 0))
+	show_tab(tab)
 	_load()
 
 
+## Opens a tab: "ranked", "spec" or "open".
+func show_tab(t: String) -> void:
+	tab = t if t in TABS else "ranked"
+	for i in TABS.size():
+		var on: bool = TABS[i] == tab
+		_tab_buttons[i].set_pressed_no_signal(on)
+		if on:
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Ui.RED_DARK
+			sb.border_color = Ui.RED
+			sb.set_border_width_all(1)
+			sb.border_width_bottom = 3
+			sb.set_content_margin_all(4)
+			sb.content_margin_left = 8
+			sb.content_margin_right = 8
+			for st: String in ["normal", "hover", "pressed", "hover_pressed"]:
+				_tab_buttons[i].add_theme_stylebox_override(st, sb)
+		else:
+			for st: String in ["normal", "hover", "pressed", "hover_pressed"]:
+				_tab_buttons[i].remove_theme_stylebox_override(st)
+	_ranked.visible = tab == "ranked"
+	for n in _pass_nodes:
+		n.visible = tab != "ranked"
+	if tab != "ranked":
+		_class_intro.text = CLASS_INTRO[tab]
+		_class_intro.add_theme_color_override("font_color", Ui.INK if tab == "spec" else Ui.YELLOW)
+		if not _pool(_selected).is_empty() and _cls(_pool(_selected)) != tab:
+			_selected = 0
+		_pick_default()
+		_render()
+
+
+static func _cls(p: Dictionary) -> String:
+	return String(p.get("cls", "spec"))
+
+
+## The pools of the open class.
+func _pools() -> Array:
+	var out := []
+	for p: Variant in _info.get("pools", []):
+		if _cls(p as Dictionary) == tab:
+			out.append(p)
+	return out
+
+
+## Selects your entered pool of this class, else the second one (daily silver).
+func _pick_default() -> void:
+	if _selected != 0 or _info.is_empty():
+		return
+	var pools := _pools()
+	for p: Variant in pools:
+		if (p as Dictionary).get("you", {}).get("entered", false):
+			_selected = int(p["id"])
+			return
+	if not pools.is_empty():
+		_selected = int(pools[1 if pools.size() > 1 else 0]["id"])
+
+
 func _load() -> void:
-	var res: Variant = await Api.get_json("/api/passes?player=" + Profile.id)
+	var res: Variant = RankedMock.passes() if RankedMock.enabled() else await Api.get_json("/api/passes?player=" + Profile.id)
 	if not is_inside_tree():
 		return
 	if not res is Dictionary:
 		_status.text = "Can't reach the server."
 		return
 	_info = res
-	if _selected == 0:
-		for p: Variant in _info.get("pools", []):
-			if (p as Dictionary).get("you", {}).get("entered", false):
-				_selected = int(p["id"])
-				break
-		if _selected == 0 and not (_info.get("pools", []) as Array).is_empty():
-			_selected = int(_info["pools"][1 if (_info["pools"] as Array).size() > 1 else 0]["id"])
+	if tab == "ranked":
+		return
+	_pick_default()
 	_render()
 
 
@@ -141,7 +228,7 @@ func _render() -> void:
 	_wallet_chip.text = ("WALLET  " + Ui.short_hash(String(wallet))) if wallet is String and wallet != "" else ("LINK A WALLET  >" if Profile.is_signed_in() else "SIGN IN  >")
 	for c in _grid.get_children():
 		c.queue_free()
-	for p: Variant in _info.get("pools", []):
+	for p: Variant in _pools():
 		_grid.add_child(_card(p))
 	_detail_for(_pool(_selected))
 
@@ -240,8 +327,9 @@ func _detail_for(p: Dictionary) -> void:
 		var go := Ui.button("DRIVE A PASS LAP  >", true)
 		go.custom_minimum_size = Vector2(0, 24)
 		go.disabled = not open
-		go.tooltip_text = "Qualifying-style lap on the standard car. Your best verified lap counts in every pass you hold."
-		go.pressed.connect(func() -> void: drive.emit(int(p["id"])))
+		var open_cls := _cls(p) == "open"
+		go.tooltip_text = ("Qualifying-style lap in your own car: your parts and tuning." if open_cls else "Qualifying-style lap on the standard car.") + " Your best verified lap counts in every %s pass you hold." % _cls(p).to_upper()
+		go.pressed.connect(func() -> void: drive.emit(_cls(p), int(p["id"])))
 		_detail.add_child(go)
 		if String(you.get("tx", "")) != "":
 			var view := Ui.button("YOUR PASS ON SOLANA  >")

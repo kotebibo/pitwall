@@ -150,7 +150,7 @@ func _build() -> void:
 	_items["practice"] = _menu_item("PRACTICE", "Learn the track. Racing line on, setup free.", "icon_stopwatch", practice)
 	_items["qualifying"] = _menu_item("QUALIFYING", "Set your fastest lap. Verified on Solana.", "icon_flag", qualifying, Profile.tutorial_done)
 	_items["race"] = _menu_item("RACE", "Five laps from your grid slot. One pit stop.", "icon_trophy", race)
-	_items["passes"] = _menu_item("RACE PASSES", "Stake a pass, race equal cars, win the pot.", "icon_coin", passes)
+	_items["passes"] = _menu_item("COMPETE", "Ranked races, or stake a race pass.", "icon_coin", passes)
 	_items["garage"] = _menu_item("GARAGE", "Fit parts, tune the car, open packs.", "icon_wrench", garage)
 	for k: String in ["tutorial", "practice", "qualifying", "race", "passes", "garage"]:
 		left.add_child(_items[k])

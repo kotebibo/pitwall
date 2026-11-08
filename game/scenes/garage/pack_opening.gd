@@ -5,7 +5,21 @@ extends Control
 
 signal closed
 
+const MEDAL_TINT := {"bronze": Color("c98a5a"), "silver": Color("c6c8d0"), "gold": Color("f2c230")}
+const _TINT_SHADER := """
+shader_type canvas_item;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform float amount = 0.8;
+void fragment() {
+	float l = dot(COLOR.rgb, vec3(0.299, 0.587, 0.114));
+	COLOR.rgb = mix(COLOR.rgb, tint.rgb * clamp(l * 1.55, 0.0, 1.25), amount);
+}
+"""
+static var _shader: Shader
+
 var parts: Array = []
+## A ranked medal pack: "bronze", "silver" or "gold" ("" for a development pack).
+var medal := ""
 var _pack: TextureRect
 var _cards: Array[PartCard] = []
 var _flipped := 0
@@ -22,7 +36,7 @@ func _ready() -> void:
 	dim.color = Color(0.03, 0.03, 0.04, 0.88)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
-	_title = Ui.label("DEVELOPMENT PACK", Ui.SIZE_HEADING, Ui.INK, true)
+	_title = Ui.label(pack_title(medal), Ui.SIZE_HEADING, MEDAL_TINT.get(medal, Ui.INK), true)
 	_title.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.position = Vector2(size.x / 2 - 150, 18)
@@ -37,7 +51,8 @@ func _ready() -> void:
 	_burst.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_burst)
 	_pack = TextureRect.new()
-	_pack.texture = PartCard.texture("res://assets/sprites/packs/pack_closed.png")
+	_pack.texture = pack_texture("pack_closed", medal)
+	_pack.material = medal_material(medal, "pack_closed")
 	_pack.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_pack.size = Vector2(96, 112) * 1.6
 	_pack.pivot_offset = _pack.size / 2
@@ -58,6 +73,35 @@ func _ready() -> void:
 	_play()
 
 
+## "GOLD MEDAL PACK", or "DEVELOPMENT PACK".
+static func pack_title(m: String) -> String:
+	return ("%s MEDAL PACK" % m.to_upper()) if MEDAL_TINT.has(m) else "DEVELOPMENT PACK"
+
+
+## A pack sprite ("pack_closed", "pack_open", "pack_shake_1"...): the medal's own art when it is
+## there (pack_closed_gold.png), else the development pack's art.
+static func pack_texture(base: String, m: String) -> Texture2D:
+	if MEDAL_TINT.has(m):
+		var own := PartCard.texture("res://assets/sprites/packs/%s_%s.png" % [base, m])
+		if own:
+			return own
+	return PartCard.texture("res://assets/sprites/packs/%s.png" % base)
+
+
+## The medal tint for the development pack's art (null for a development pack, or when the
+## medal has its own art for `base`).
+static func medal_material(m: String, base: String = "pack_closed") -> ShaderMaterial:
+	if not MEDAL_TINT.has(m) or ResourceLoader.exists("res://assets/sprites/packs/%s_%s.png" % [base, m]):
+		return null
+	if _shader == null:
+		_shader = Shader.new()
+		_shader.code = _TINT_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = _shader
+	mat.set_shader_parameter("tint", MEDAL_TINT[m])
+	return mat
+
+
 func _layout() -> void:
 	var c := size / 2
 	_pack.position = c - _pack.size / 2
@@ -73,8 +117,8 @@ func _sfx(name: String) -> void:
 
 func _play() -> void:
 	# Anticipation: three shakes, each harder
-	var shake1 := PartCard.texture("res://assets/sprites/packs/pack_shake_1.png")
-	var shake2 := PartCard.texture("res://assets/sprites/packs/pack_shake_2.png")
+	var shake1 := pack_texture("pack_shake_1", medal)
+	var shake2 := pack_texture("pack_shake_2", medal)
 	var closed_tex := _pack.texture
 	for k in 3:
 		_sfx("pack_shake")
@@ -90,9 +134,10 @@ func _play() -> void:
 		await get_tree().create_timer(0.18 - k * 0.04).timeout
 	# Burst
 	_sfx("pack_open")
-	var open_tex := PartCard.texture("res://assets/sprites/packs/pack_open.png")
+	var open_tex := pack_texture("pack_open", medal)
 	if open_tex:
 		_pack.texture = open_tex
+		_pack.material = medal_material(medal, "pack_open")
 	_flash.color.a = 0.85
 	var tw := create_tween().set_parallel()
 	tw.tween_property(_flash, "color:a", 0.0, 0.45)

@@ -5,6 +5,8 @@ extends Control
 ## recorded by SessionSim, so a lap can be re-driven and verified.
 
 signal exited
+## Ranked: the result's RANKED RACE AGAIN.
+signal ranked_again
 
 const GHOST_COLOR := Color("f1efea")
 
@@ -29,6 +31,19 @@ var _rookie: RookieTest
 ## Attempt id of the fastest other player's verified lap: raced as a ghost.
 var rival_attempt := ""
 var rival_name := ""
+## A ranked race (session "ranked"): the first completed lap is the result; driving stops
+## there. Restarting or leaving before it forfeits (asks first).
+var ranked := false
+## The pause menu's way out ("EXIT TO WEEKEND"; competition laps go back to COMPETE).
+var exit_text := "EXIT TO WEEKEND"
+var _ranked_opps: Array = []
+var _ranked_live := false  # a ranked attempt is open on the server and not yet resolved
+var _ranked_done := false
+var _opp_panel: PanelContainer
+var _opp_rows: VBoxContainer
+var _opp_head: Label
+var _confirm: Control
+var _layer: CanvasLayer
 var _rival: CarView
 var _rival_path := PackedVector3Array()
 
@@ -209,6 +224,7 @@ func _build() -> void:
 
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	_layer = layer
 	_hud = DriveHud.new()
 	_hud.title = "%s · %s" % [title, _track.name.to_upper()]
 	layer.add_child(_hud)
@@ -296,6 +312,9 @@ func _build_pause() -> Control:
 	box.add_child(resume)
 	_pause_restart = Ui.button("")
 	_pause_restart.pressed.connect(func() -> void:
+		if _forfeit_risk():
+			_ask_forfeit()
+			return
 		_toggle_pause()
 		_start_attempt())
 	box.add_child(_pause_restart)
@@ -308,8 +327,12 @@ func _build_pause() -> Control:
 	var settings := Ui.button("SETTINGS: KEYS AND SOUND")
 	settings.pressed.connect(_open_settings)
 	box.add_child(settings)
-	var leave := Ui.button("EXIT TO WEEKEND")
-	leave.pressed.connect(func() -> void: exited.emit())
+	var leave := Ui.button(exit_text)
+	leave.pressed.connect(func() -> void:
+		if _forfeit_risk():
+			_ask_forfeit()
+			return
+		exited.emit())
 	box.add_child(leave)
 	_pause_keys = Ui.label("", Ui.SIZE_SMALL, Ui.INK_3)
 	box.add_child(_pause_keys)
@@ -357,6 +380,10 @@ func _start_attempt() -> void:
 				stats = res["stats"]
 			if (res as Dictionary).get("setup") is Dictionary:
 				setup = res["setup"]
+			if ranked:
+				var m: Variant = (res as Dictionary).get("rankedMatch")
+				_ranked_opps = (m as Dictionary).get("opponents", []) if m is Dictionary and (m as Dictionary).get("opponents") is Array else []
+				_ranked_live = _attempt_id != ""
 		else:
 			_hud.flash("SERVER UNAVAILABLE: OFFLINE RUN", Ui.YELLOW, 4.0)
 	if seed.is_empty():
@@ -389,6 +416,13 @@ func _start_attempt() -> void:
 	_hud.has_delta = false
 	_hud.waiting = true
 	_state = "waiting"
+	if ranked:
+		_show_opponents()
+		if OS.is_debug_build() and RankedMock.enabled() and "--ranked-result" in Api.args:
+			# testing: the result overlay without driving a whole lap
+			await get_tree().create_timer(1.0).timeout
+			if is_inside_tree() and not _ranked_done:
+				_finish_ranked({"us": 65_430_000, "valid": not ("--ranked-forfeit" in Api.args)})
 
 
 static func _filled(n: int, v: int) -> PackedInt64Array:
@@ -407,9 +441,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	# ESC always pauses as well: it can never be bound to anything else
 	var key := event as InputEventKey
 	var esc := key != null and key.pressed and not key.echo and key.physical_keycode == KEY_ESCAPE
-	if event.is_action_pressed("drive_pause") or esc:
+	if _confirm and _confirm.visible and (event.is_action_pressed("drive_pause") or esc):
+		_cancel_forfeit()
+	elif event.is_action_pressed("drive_pause") or esc:
 		_toggle_pause()
 	elif event.is_action_pressed("drive_restart") and _state != "loading":
+		if _ranked_done:
+			return
+		if _forfeit_risk():
+			_ask_forfeit()
+			return
 		_pause.visible = false
 		_start_attempt()
 	elif event.is_action_pressed("drive_camera"):
@@ -479,6 +520,8 @@ func _after_tick() -> void:
 		_rookie.tick(_session)
 	if _session.lap_number != _lap_number:
 		_lap_number = _session.lap_number
+		if ranked and _lap_number == 1:
+			_minimise_opponents()
 		_lap_tick0 = _session.tick
 		_lap_path.clear()
 		_lap_time_at = _filled(_track.size(), -1)
@@ -531,6 +574,10 @@ func _after_tick() -> void:
 
 
 func _on_lap(lap: Dictionary) -> void:
+	if ranked:
+		if not _ranked_done:
+			_finish_ranked(lap)
+		return
 	var us: int = lap["us"]
 	_hud.last_us = us
 	_hud.sectors.assign(lap["sectors"])
@@ -589,6 +636,165 @@ func _verify(us: int) -> void:
 			_hud.flash("SERVER RE-DRIVE DID NOT MATCH THIS LAP", Ui.RED, 4.0)
 	else:
 		_hud.flash("COULD NOT VERIFY: SERVER UNAVAILABLE", Ui.YELLOW, 3.0)
+
+
+# ---- ranked ----
+
+func _forfeit_risk() -> bool:
+	return ranked and _ranked_live and not _ranked_done
+
+
+## Restart or exit during a ranked race: ask first, it forfeits.
+func _ask_forfeit() -> void:
+	if _confirm == null:
+		_confirm = _build_confirm()
+		_layer.add_child(_confirm)
+	if _state == "driving" or _state == "waiting":
+		_state = "paused_" + _state
+		_audio.set_paused(true)
+	_pause.visible = false
+	_confirm.visible = true
+	Sfx.play("ui_error")
+
+
+func _cancel_forfeit() -> void:
+	_confirm.visible = false
+	_pause.visible = true  # still paused: RESUME carries on
+
+
+func _build_confirm() -> Control:
+	var root := ColorRect.new()
+	root.color = Color(0.03, 0.035, 0.045, 0.82)
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.theme = Ui.theme
+	var panel := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.075, 0.09, 0.97)
+	sb.border_color = Ui.RED
+	sb.border_width_top = 3
+	sb.set_content_margin_all(12)
+	panel.add_theme_stylebox_override("panel", sb)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	root.add_child(panel)
+	var box := Ui.vbox(6)
+	panel.add_child(box)
+	box.add_child(Ui.label("LEAVE THE RANKED RACE?", Ui.SIZE_HEADING, Ui.INK, true))
+	box.add_child(Ui.label("This forfeits the ranked race (counts as a loss).", Ui.SIZE_BODY, Ui.RED, true))
+	box.add_child(Ui.label("A forfeit loses to all 5 opponents.", Ui.SIZE_SMALL, Ui.INK_2))
+	var row := Ui.hbox(6)
+	var stay := Ui.button("KEEP RACING", true)
+	stay.custom_minimum_size = Vector2(120, 24)
+	stay.pressed.connect(func() -> void:
+		_cancel_forfeit()
+		_toggle_pause())
+	row.add_child(stay)
+	var go := Ui.button("FORFEIT AND LEAVE")
+	go.custom_minimum_size = Vector2(130, 24)
+	go.pressed.connect(func() -> void:
+		_ranked_live = false
+		Api.track("ranked_forfeit")
+		exited.emit())  # the server resolves the forfeit on the next start
+	row.add_child(go)
+	box.add_child(row)
+	root.visible = false
+	return root
+
+
+## The five opponents, at the start: name, tier badge, lap time. Minimised once the lap starts.
+func _show_opponents() -> void:
+	if _opp_panel == null:
+		_opp_panel = PanelContainer.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = DriveHud.GLASS
+		sb.set_border_width_all(1)
+		sb.border_width_top = 2
+		sb.border_color = Color(Ui.RED, 0.8)
+		sb.set_content_margin_all(5)
+		_opp_panel.add_theme_stylebox_override("panel", sb)
+		_opp_panel.theme = Ui.theme
+		_opp_panel.position = Vector2(8, 72)
+		_opp_panel.custom_minimum_size = Vector2(156, 0)
+		_opp_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var v := Ui.vbox(1)
+		_opp_panel.add_child(v)
+		_opp_head = Ui.label("", Ui.SIZE_SMALL, Ui.RED, true)
+		v.add_child(_opp_head)
+		_opp_rows = Ui.vbox(0)
+		v.add_child(_opp_rows)
+		_layer.add_child(_opp_panel)
+		_layer.move_child(_opp_panel, _pause.get_index())  # under the pause menu
+	for c in _opp_rows.get_children():
+		c.queue_free()
+	_opp_panel.visible = not _ranked_opps.is_empty()
+	_opp_rows.visible = true
+	_opp_head.text = "RANKED RACE  ·  BEAT THESE 5"
+	for o: Variant in _ranked_opps:
+		if not o is Dictionary:
+			continue
+		var d: Dictionary = o
+		var row := Ui.hbox(4)
+		row.add_child(RankEmblem.make(String(d.get("tier", "")), d.get("division"), 10, false))
+		var n := Ui.label(String(d.get("name", "")).to_upper(), Ui.SIZE_SMALL, Ui.INK)
+		n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		n.clip_text = true
+		row.add_child(n)
+		var t := Ui.label(RankEmblem.label_for(String(d.get("tier", "")), d.get("division")), Ui.SIZE_SMALL, RankEmblem.color(String(d.get("tier", ""))))
+		t.custom_minimum_size = Vector2(42, 0)
+		t.clip_text = true
+		row.add_child(t)
+		row.add_child(Ui.label(Ui.format_time(int(float(d.get("us", 0))) / 1000), Ui.SIZE_SMALL, Ui.INK_2))
+		_opp_rows.add_child(row)
+	_opp_panel.reset_size()
+
+
+## On the flying lap: one line with the time to beat them all.
+func _minimise_opponents() -> void:
+	if _opp_panel == null or _ranked_opps.is_empty():
+		return
+	_opp_rows.visible = false
+	var fastest: Dictionary = _ranked_opps[0] if _ranked_opps[0] is Dictionary else {}
+	_opp_head.text = "RANKED · FASTEST RIVAL %s" % Ui.format_time(int(float(fastest.get("us", 0))) / 1000)
+	_opp_panel.reset_size()
+
+
+## The first completed lap is the result: driving stops, the server scores it.
+func _finish_ranked(lap: Dictionary) -> void:
+	_ranked_done = true
+	_state = "finished"
+	_pause.visible = false
+	if _confirm:
+		_confirm.visible = false
+	_audio.set_paused(true)
+	if _opp_panel:
+		_opp_panel.visible = false
+	var us := int(lap.get("us", 0))
+	var valid := bool(lap.get("valid", false))
+	_hud.last_us = us
+	_hud.flash(("LAP " + Ui.format_time(us / 1000) + "  ·  VERIFYING") if valid else "LAP DELETED  ·  FORFEIT", DriveHud.GREEN if valid else Ui.RED, 6.0)
+	Sfx.play("lap_pb" if valid else "lap_deleted")
+	var res: Variant = null
+	if RankedMock.enabled():
+		await get_tree().create_timer(0.8).timeout
+		res = RankedMock.run(us, valid)  # debug only: --mock-ranked
+	elif _attempt_id != "":
+		res = await Api.post_json("/api/attempts/%s/run" % _attempt_id, {"inputs": _session.encoded_inputs()})
+	if not is_inside_tree():
+		return
+	_ranked_live = false
+	_hud.message = ""
+	var o := RankedResult.new()
+	o.response = res
+	o.match_opponents = _ranked_opps
+	var last: Dictionary = RankedView.last_info
+	o.before = last.get("you", {}) if last.get("you") is Dictionary else {}
+	o.lap_us = us
+	o.lap_valid = valid
+	o.again.connect(func() -> void: ranked_again.emit())
+	o.back.connect(func() -> void: exited.emit())
+	_layer.add_child(o)
+	Api.track("ranked_result", "lap" if valid else "forfeit")
 
 
 var _gear := 1
