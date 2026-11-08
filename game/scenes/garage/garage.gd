@@ -22,6 +22,7 @@ var _detail_more: RichTextLabel
 var _desc: Label
 var _fit: Button
 var _scrap: Button
+var _test: Button
 var _scrap_armed := false
 var _selected: Dictionary = {}
 var _spec_box: VBoxContainer
@@ -196,6 +197,11 @@ func _parts_page() -> Control:
 	_fit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_fit.pressed.connect(_equip_selected)
 	buttons.add_child(_fit)
+	_test = Ui.button("TEST DRIVE")
+	_test.tooltip_text = "The autopilot drives a lap of Mtkvari with your car now and with this part, and shows where it gains or loses time."
+	_test.custom_minimum_size = Vector2(0, 22)
+	_test.pressed.connect(_test_drive)
+	buttons.add_child(_test)
 	_scrap = Ui.button("SCRAP")
 	_scrap.tooltip_text = "Scrap this part for R&D credits (more for rarer parts). It leaves your garage for good."
 	_scrap.custom_minimum_size = Vector2(0, 22)
@@ -398,6 +404,7 @@ func _pick(p: Dictionary) -> void:
 	var is_fitted: bool = String(p.get("id", "")) == Catalog.equipped_id(area) or (p.get("rarity") == "starter" and Catalog.equipped_id(area) == "")
 	_fit.disabled = is_fitted or not p.has("id") or retired
 	_fit.text = "FITTED" if is_fitted else ("RETIRED" if retired else "FIT PART")
+	_test.visible = p.has("id") and not retired and not (is_fitted and rarity == "starter")
 	var credits := _scrap_credits(rarity)
 	_scrap.visible = not is_fitted and p.has("id") and rarity != "starter"
 	_scrap.disabled = false
@@ -405,6 +412,29 @@ func _pick(p: Dictionary) -> void:
 	_scrap.tooltip_text = "Scrap this part for %d R&D credits. It leaves your garage for good." % credits
 	if Profile.setup_locked() and not is_fitted:
 		_status.text = "Parc ferme: today's qualifying keeps the car you first qualified with. New parts count in practice now and in qualifying tomorrow."
+
+
+## TEST DRIVE: autopilot laps with the car now and with the picked part (or, for
+## the fitted part, with the standard part instead), then where it gains and loses.
+func _test_drive() -> void:
+	if _selected.is_empty():
+		return
+	var area := String(_selected.get("area", _area))
+	var standard := {"area": area, "concept": "baseline", "rarity": "starter", "stats": {}}
+	var is_fitted := String(_selected.get("id", "")) == Catalog.equipped_id(area)
+	var panel := TestDrivePanel.new()
+	panel.title = ("%s %s" % [PartCard.part_name(_selected).to_upper(), PartCard.serial(_selected)]).strip_edges()
+	if is_fitted:
+		panel.base_spec = CarPerf.spec_of(PerfPanel.fitted_with(area, standard), Catalog.data)
+		panel.part_spec = CarPerf.spec_of(PerfPanel.fitted_with(), Catalog.data)
+		panel.caption = "Fitted now: against the standard part in its place."
+	else:
+		panel.base_spec = CarPerf.spec_of(PerfPanel.fitted_with(), Catalog.data)
+		panel.part_spec = CarPerf.spec_of(PerfPanel.fitted_with(area, _selected), Catalog.data)
+		panel.caption = "Against your car as it is now."
+	add_child(panel)
+	await panel.closed
+	panel.queue_free()
 
 
 static func _km(km: float) -> String:

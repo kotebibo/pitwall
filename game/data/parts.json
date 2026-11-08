@@ -16,14 +16,14 @@
   "lapWeights": {
     "unit": "lap-time points per stat unit: 1 point = 0.001% of lap time, positive = faster",
     "source": "Quasi-steady-state lap model of car_sim.gd constants on Mtkvari (ideal driver, steady-state energy). Recalibrate when the physics changes.",
-    "weights": { "downforce": 15, "drag": -5, "balance": 0, "power": 18, "harvest": 1, "grip": 46, "traction": 10, "weight": -20 },
-    "weightSource": "Weight (per kg) from autopilot laps of Mtkvari at physics v5: +10 kg costs 0.06% of lap time, 0.45 times what 1% grip gains and 1.4 times 1% downforce on the same laps, scaled to the lap model's grip and downforce weights."
+    "weights": { "downforce": 15, "drag": -5, "balance": 0, "power": 18, "harvest": 1, "grip": 46, "traction": 10, "weight": -34 },
+    "weightSource": "Weight (per kg, physics v5): 1 kg is 0.125% of the car's mass. It costs what about 0.9 kW costs on the straights (acceleration is force over mass) plus what 1.25 per mille of downforce costs in corners and under braking (grip is mass plus downforce, over mass): about 15 + 19 points."
   },
 
   "trackTypes": {
     "mixed": { "name": "Mixed", "about": "The calibration circuit (Mtkvari).", "multipliers": { "downforce": 1, "drag": 1, "balance": 1, "power": 1, "harvest": 1, "grip": 1, "traction": 1, "weight": 1 } },
     "street": { "name": "Street", "about": "Slow corners, short straights, heavy braking.", "multipliers": { "downforce": 0.7, "drag": 0.5, "balance": 1, "power": 0.6, "harvest": 1.4, "grip": 1.25, "traction": 1.6, "weight": 1.15 } },
-    "speed": { "name": "Speed", "about": "Long straights, fast corners.", "multipliers": { "downforce": 0.8, "drag": 1.6, "balance": 1, "power": 1.5, "harvest": 0.8, "grip": 0.8, "traction": 0.6, "weight": 0.9 } }
+    "speed": { "name": "Speed", "about": "Long straights, fast corners.", "multipliers": { "downforce": 0.8, "drag": 1.6, "balance": 1, "power": 1.5, "harvest": 0.8, "grip": 0.8, "traction": 0.6, "weight": 0.8 } }
   },
 
   "budget": {
