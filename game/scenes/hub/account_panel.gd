@@ -75,7 +75,7 @@ func _render() -> void:
 		_:
 			var creating := _mode == "create"
 			_box.add_child(Ui.label("CREATE ACCOUNT" if creating else "SIGN IN", Ui.SIZE_TITLE, Ui.INK, true))
-			var hint := "Your team name is shown on the timesheet. Progress as a guest comes with you." if creating else "Save your times, parts and packs across devices."
+			var hint := "Create an account and get a free development pack. Your team name is shown on the timesheet; progress as a guest comes with you." if creating else "Save your times, parts and packs across devices."
 			var h := Ui.label(hint, Ui.SIZE_SMALL, Ui.INK_2)
 			h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_box.add_child(h)
@@ -88,7 +88,7 @@ func _render() -> void:
 			go.custom_minimum_size = Vector2(0, 24)
 			go.pressed.connect(_submit)
 			_box.add_child(go)
-			var swap := Ui.button("NEW HERE? CREATE AN ACCOUNT" if not creating else "HAVE AN ACCOUNT? SIGN IN")
+			var swap := Ui.button("NEW HERE? CREATE AN ACCOUNT  ·  FREE PACK" if not creating else "HAVE AN ACCOUNT? SIGN IN")
 			swap.pressed.connect(func() -> void:
 				_mode = "signin" if creating else "create"
 				_render())
@@ -129,6 +129,9 @@ func _submit() -> void:
 		_mode = "account"
 		_render()
 		_status.text = "Signed in. Welcome, %s." % Profile.team_name
+		if (res as Dictionary).get("signupPack") is Dictionary:
+			_status.text += " Your free development pack is waiting in the garage."
+			Ui.toast("FREE DEVELOPMENT PACK  ·  OPEN IT IN THE GARAGE")
 		_status.add_theme_color_override("font_color", Color("3ecf6a"))
 	else:
 		Sfx.play("ui_error")

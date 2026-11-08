@@ -24,8 +24,8 @@ func _refresh_account() -> void:
 		_account_chip.text = Profile.team_name.to_upper() + ("  ·  WALLET LINKED" if Profile.wallet != "" else "  ·  ACCOUNT")
 		_account_chip.tooltip_text = "Your account: link a Solana wallet or sign out."
 	else:
-		_account_chip.text = "GUEST  ·  SIGN IN / CREATE ACCOUNT"
-		_account_chip.tooltip_text = "Save your progress and show your team name on the timesheet."
+		_account_chip.text = "GUEST  ·  SIGN IN / CREATE ACCOUNT  ·  FREE PACK"
+		_account_chip.tooltip_text = "Save your progress and show your team name on the timesheet.\nCreate an account and get a free development pack."
 
 
 func _open_account() -> void:
