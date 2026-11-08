@@ -96,11 +96,23 @@ class PerfBars:
 	var _from: Dictionary = {}
 	var _to: Dictionary = {}
 	var _std: Dictionary = {}
+	## The rows, their bar scales and hover help: the parts page's by default (see use()).
+	var keys: Array[String] = CarPerf.KEYS
+	var spans: Dictionary = CarPerf.SPAN
+	var help: Dictionary = CarPerf.HELP
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(0, ROW_H * CarPerf.KEYS.size())
+		custom_minimum_size = Vector2(0, ROW_H * keys.size())
 		mouse_filter = Control.MOUSE_FILTER_PASS
 		tooltip_text = "Hover a stat to see what it means."
+
+	## Other rows (the TUNING tab's: CarPerf.SETUP_KEYS).
+	func use(row_keys: Array[String], row_spans: Dictionary, row_help: Dictionary) -> void:
+		keys = row_keys
+		spans = row_spans
+		help = row_help
+		custom_minimum_size = Vector2(0, ROW_H * keys.size())
+		queue_redraw()
 
 	func show_cars(from: Dictionary, to: Dictionary, std: Dictionary) -> void:
 		_from = from
@@ -110,16 +122,16 @@ class PerfBars:
 
 	func _get_tooltip(at_position: Vector2) -> String:
 		var row := int(at_position.y) / ROW_H
-		if row < 0 or row >= CarPerf.KEYS.size():
+		if row < 0 or row >= keys.size():
 			return ""
-		return CarPerf.HELP[CarPerf.KEYS[row]]
+		return String(help.get(keys[row], ""))
 
 	## 0..1 along the bar: the standard car in the middle, better to the right.
 	func _frac(key: String, v: float) -> float:
 		var s: float = _std.get(key, v)
 		if s == 0.0:
 			return 0.5
-		var rel := (v - s) / absf(s) / float(CarPerf.SPAN[key])
+		var rel := (v - s) / absf(s) / float(spans[key])
 		if CarPerf.LOWER_IS_BETTER.has(key):
 			rel = -rel
 		return clampf(0.5 + rel * 0.5, 0.03, 1.0)
@@ -136,6 +148,8 @@ class PerfBars:
 				return "%d kJ" % roundi(v)
 			"weight":
 				return "%d kg" % roundi(v)
+			"balance":
+				return "%d%% front" % roundi(v * 100.0)
 		return "%.1f" % v
 
 	static func _delta(key: String, d: float) -> String:
@@ -144,6 +158,8 @@ class PerfBars:
 				return "%+.2f" % d
 			"battery", "weight":
 				return "%+d" % roundi(d)
+			"balance":
+				return "%+.1f" % (d * 100.0)
 		return "%+.1f" % d
 
 	## Changes smaller than the last digit shown are not worth a colour.
@@ -153,6 +169,8 @@ class PerfBars:
 				return absf(d) >= 0.005
 			"battery", "weight":
 				return absf(d) >= 0.5
+			"balance":
+				return absf(d) >= 0.0005
 		return absf(d) >= 0.05
 
 	func _draw() -> void:
@@ -160,8 +178,8 @@ class PerfBars:
 			return
 		var bar_x := float(NAME_W)
 		var bar_w := maxf(20.0, size.x - NAME_W - VALUE_W - DELTA_W - 4)
-		for i in CarPerf.KEYS.size():
-			var key: String = CarPerf.KEYS[i]
+		for i in keys.size():
+			var key: String = keys[i]
 			var y := float(i * ROW_H)
 			draw_string(Ui.font, Vector2(0, y + 8), CarPerf.NAMES[key], HORIZONTAL_ALIGNMENT_LEFT, NAME_W - 2, Ui.SIZE_SMALL, Ui.INK_2)
 			var a: float = _from.get(key, 0.0)
@@ -169,6 +187,8 @@ class PerfBars:
 			var d := b - a
 			var better := (d < 0.0) if CarPerf.LOWER_IS_BETTER.has(key) else (d > 0.0)
 			var shown := _shown(key, d)
+			# green gained, red lost; yellow for a change that is neither (balance)
+			var tint: Color = Ui.YELLOW if CarPerf.NEUTRAL.has(key) else (Catalog.GREEN if better else Ui.RED)
 			# track, then the car now, then what changes: green gained, red lost
 			var by := y + 3
 			draw_rect(Rect2(bar_x, by, bar_w, 5), TRACK)
@@ -179,7 +199,7 @@ class PerfBars:
 			draw_rect(Rect2(bar_x, by, minf(fa, fb), 5), FILL)
 			if shown:
 				var lo := minf(fa, fb)
-				draw_rect(Rect2(bar_x + lo, by, absf(fb - fa), 5), Catalog.GREEN if better else Ui.RED)
+				draw_rect(Rect2(bar_x + lo, by, absf(fb - fa), 5), tint)
 			# segment the bar every 4 px, pixel-art style
 			var x := 4.0
 			while x < bar_w:
@@ -189,4 +209,4 @@ class PerfBars:
 			draw_rect(Rect2(bar_x + roundf(bar_w * 0.5), by - 1, 1, 7), Ui.INK_3)
 			draw_string(Ui.font_bold, Vector2(bar_x + bar_w + 2, y + 8), _value(key, b), HORIZONTAL_ALIGNMENT_RIGHT, VALUE_W, Ui.SIZE_SMALL, Ui.INK)
 			if shown:
-				draw_string(Ui.font_bold, Vector2(bar_x + bar_w + 4 + VALUE_W, y + 8), _delta(key, d), HORIZONTAL_ALIGNMENT_RIGHT, DELTA_W - 2, Ui.SIZE_SMALL, Catalog.GREEN if better else Ui.RED)
+				draw_string(Ui.font_bold, Vector2(bar_x + bar_w + 4 + VALUE_W, y + 8), _delta(key, d), HORIZONTAL_ALIGNMENT_RIGHT, DELTA_W - 2, Ui.SIZE_SMALL, tint)
