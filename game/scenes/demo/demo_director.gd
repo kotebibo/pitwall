@@ -43,13 +43,14 @@ func _ready() -> void:
 	_cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cursor.draw.connect(_draw_cursor)
 	add_child(_cursor)
-	_cursor.visible = shot in ["hub", "garage", "garage3", "livery", "tuning", "passes"]
+	_cursor.visible = shot in ["hub", "garage", "garage3", "livery", "tuning", "passes", "passes2"]
 	_set_pos(_pos)
 	match shot:
 		"hub": _hub()
 		"garage": _garage()
 		"tuning": _tuning()
 		"passes": _passes()
+		"passes2": _passes2()
 		"garage3": _garage3()
 		"livery": _livery()
 
@@ -365,6 +366,27 @@ func _collect_swatches(n: Node, out: Array[Button]) -> void:
 		if c is Button and (c as Button).text == "" and (c as Button).is_visible_in_tree():
 			out.append(c)
 		_collect_swatches(c, out)
+
+
+## Race passes, second take: look over the tiers, then your pool's standings.
+func _passes2() -> void:
+	await wait(1.2)
+	var screen := find_class("RacePassScreen")
+	if screen == null:
+		return
+	var grid: Node = screen.get("_grid")
+	var cards: Array = grid.get_children() if grid else []
+	for i in [2, 4, 5]:
+		if i < cards.size():
+			await move(cards[i], 0.35)
+			await wait(0.3)
+	cards = grid.get_children()
+	if cards.size() > 0:
+		await move(cards[0], 0.4)
+		await click()
+		await wait(1.0)
+		await move("DRIVE A PASS LAP", 0.6)
+		await wait(3.0)
 
 
 ## Race passes: the pools, your pool's standings, a pool that has paid out.

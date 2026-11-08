@@ -326,6 +326,9 @@ func _autopilot_cmd() -> Array[int]:
 	if not _autopilot.pitted and _race.crossings[0] >= _autopilot.pit_lap and _track.in_pit_zone(car.idx) and entering:
 		lane = _track.pit_center
 		limit = mini(RaceSim.PIT_LIMIT, _race.box_approach_speed(0))
+	elif _autopilot.pitted and car.in_pit_lane and _track.in_pit_zone(car.idx):
+		lane = _track.pit_center  # stopped: drive out along the pit lane, as the AI does
+		limit = RaceSim.PIT_LIMIT
 	return _autopilot.drive(car, lane, limit, _race._blocked_side(0))
 
 
