@@ -14,6 +14,9 @@ var wallet := ""
 var account_prompted := false
 var garage_tour_done := false
 var setup := DEFAULT_SETUP.duplicate()
+## Car colours ("#rrggbb"; "" = default): the account's livery, cached so it shows offline.
+## Cosmetic only: never sent to the sim. Read it through Catalog.livery_color().
+var livery := {"primary": "", "secondary": ""}
 ## Last event info from the server (driver stats, leaderboard, setup lock).
 var event: Dictionary = {}
 
@@ -32,6 +35,10 @@ func _ready() -> void:
 		if saved is Dictionary:
 			for k: String in DEFAULT_SETUP:
 				setup[k] = int((saved as Dictionary).get(k, DEFAULT_SETUP[k]))
+		var saved_livery: Variant = cfg.get_value("car", "livery", {})
+		if saved_livery is Dictionary:
+			for k: String in livery:
+				livery[k] = String((saved_livery as Dictionary).get(k, ""))
 	if id.is_empty():
 		id = Crypto.new().generate_random_bytes(16).hex_encode()
 		save()
@@ -50,6 +57,7 @@ func save() -> void:
 	cfg.set_value("account", "prompted", account_prompted)
 	cfg.set_value("player", "garage_tour_done", garage_tour_done)
 	cfg.set_value("car", "setup", setup)
+	cfg.set_value("car", "livery", livery)
 	cfg.save(PATH)
 
 
@@ -60,6 +68,8 @@ func is_signed_in() -> bool:
 ## Server response from register / login: {token, player, name, wallet}.
 func sign_in(res: Dictionary) -> void:
 	token = String(res.get("token", ""))
+	if String(res.get("player", id)) != id:
+		livery = {"primary": "", "secondary": ""}  # another player's car: its garage brings its livery
 	id = String(res.get("player", id))
 	team_name = String(res.get("name", team_name))
 	wallet = String(res.get("wallet", "")) if res.get("wallet") is String else ""
@@ -72,6 +82,7 @@ func sign_out() -> void:
 	token = ""
 	wallet = ""
 	team_name = "Your Team"
+	livery = {"primary": "", "secondary": ""}
 	id = Crypto.new().generate_random_bytes(16).hex_encode()
 	event = {}
 	save()

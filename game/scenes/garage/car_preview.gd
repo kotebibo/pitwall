@@ -5,6 +5,7 @@ extends Control
 
 var look := {}
 var color := Ui.RED
+var secondary := Ui.INK
 ## Area → slot point (local) to draw a leader line from the car to it.
 var leaders := {}
 var highlight := "":
@@ -41,7 +42,7 @@ func rebuild() -> void:
 	if _show == null:
 		return
 	_show.set_parts(_full_look())
-	_show.set_colors(color, Ui.INK)
+	_show.set_colors(color, secondary)
 
 
 ## Plays the "fitted" pop and flash on that part.

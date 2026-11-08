@@ -97,6 +97,8 @@ func _show_drive(kind: SessionSim.Kind, tutorial: bool = false) -> void:
 	s.stats = Profile.stats()
 	s.car_spec = Catalog.car_spec()
 	s.car_parts = Catalog.car_look()
+	s.team_color = Catalog.livery_color("primary")
+	s.team_secondary = Catalog.livery_color("secondary")
 	s.on_attempt = _new_attempt.bind(kind)
 	s.verify_laps = kind == SessionSim.Kind.QUALIFYING
 	if kind == SessionSim.Kind.QUALIFYING:
@@ -137,6 +139,8 @@ func _show_race() -> void:
 	s.stats = Profile.stats()
 	s.car_spec = Catalog.car_spec()
 	s.car_parts = Catalog.car_look()
+	s.team_color = Catalog.livery_color("primary")
+	s.team_secondary = Catalog.livery_color("secondary")
 	s.exited.connect(_show_hub)
 	_swap(s)
 

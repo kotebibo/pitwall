@@ -176,7 +176,7 @@ func _build() -> void:
 	car.custom_minimum_size = Vector2(242, 112)
 	add_child(car)
 	car.set_parts(_full_look())
-	car.set_colors(Ui.RED, Ui.INK)
+	car.set_colors(Catalog.livery_color("primary"), Catalog.livery_color("secondary"))
 	_showcase = car
 	var go := Ui.button("YOUR CAR  ·  GARAGE  >")
 	go.add_theme_font_size_override("font_size", Ui.SIZE_SMALL)
@@ -289,6 +289,7 @@ func _load() -> void:
 	if await Catalog.load_garage():
 		if _showcase:
 			_showcase.set_parts(_full_look())
+			_showcase.set_colors(Catalog.livery_color("primary"), Catalog.livery_color("secondary"))
 		var packs := Catalog.unopened_packs()
 		if packs > 0:
 			_tag("garage", "%d PACK%s TO OPEN" % [packs, "" if packs == 1 else "S"])

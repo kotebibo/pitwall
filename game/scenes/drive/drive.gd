@@ -21,6 +21,8 @@ var verify_laps := false
 var car_spec := {}
 var car_parts := {}
 var team_color := Ui.RED
+## Accents and helmet (the player's livery). Colours are presentation only.
+var team_secondary := Color("f1efea")
 ## First-time tutorial: start from a standstill and pass four checked steps.
 var tutorial := false
 var _rookie: RookieTest
@@ -175,6 +177,7 @@ func _build() -> void:
 	_world.add_child(_rival)
 	_car = CarView.new()
 	_car.body = team_color
+	_car.secondary = team_secondary
 	if not car_parts.is_empty():
 		_car.parts = car_parts
 	_car.z_index = 5
